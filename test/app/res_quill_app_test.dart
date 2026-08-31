@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:res_quill/src/app/res_quill_app.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _themePreferenceKeyForTest = 'resquill.theme';
+const _seenGuideScreensPreferenceKeyForTest = 'resquill.guide.seenScreens';
+const _allSeenGuideScreensForTest = [
+  'compare',
+  'input',
+  'report',
+  'start',
+  'validation',
+];
 
 void main() {
   const ambiguousApaPaste =
@@ -16,6 +27,8 @@ void main() {
       'two-tailed Welch independent-samples t test, t(48.80) = 1.00, '
       'p = .999, mean difference = 9.00, SE = 2.0737, '
       '95% CI [4.83, 13.17].';
+
+  setUp(_mockAllGuideScreensSeen);
 
   testWidgets('disabled analysis cards are not tappable', (tester) async {
     final semantics = tester.ensureSemantics();
@@ -218,6 +231,102 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('the start guide does not auto-advance', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('guide-bubble')), findsOneWidget);
+    expect(find.text('1 of 10'), findsOneWidget);
+    expect(
+      find.text('Change colors here. Your values stay the same.'),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.text('1 of 10'), findsOneWidget);
+    expect(
+      find.text('Change colors here. Your values stay the same.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Escape closes the guide', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('guide-bubble')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('guide-bubble')), findsNothing);
+  });
+
+  testWidgets('guide button blink fires once per screen visit', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      _seenGuideScreensPreferenceKeyForTest: ['start'],
+    });
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(_guideButtonIsPulsing(tester, 'student_test_path'), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1750));
+    expect(_guideButtonIsPulsing(tester, 'student_test_path'), isFalse);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Back to start'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(_guideButtonIsPulsing(tester, 'student_test_path'), isFalse);
+  });
+
+  testWidgets('guide seen state survives a restart', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      _seenGuideScreensPreferenceKeyForTest: ['start'],
+    });
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(_guideButtonIsPulsing(tester, 'student_test_path'), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1750));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const MainApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(_guideButtonIsPulsing(tester, 'student_test_path'), isFalse);
+  });
+}
+
+void _mockAllGuideScreensSeen() {
+  SharedPreferences.setMockInitialValues({
+    _themePreferenceKeyForTest: 'dark',
+    _seenGuideScreensPreferenceKeyForTest: _allSeenGuideScreensForTest,
+  });
 }
 
 Future<void> _setDesktop(WidgetTester tester) async {
@@ -234,4 +343,11 @@ Future<void> _pasteAndReview(WidgetTester tester, String paste) async {
   await tester.ensureVisible(find.byKey(const Key('review-detected-fields')));
   await tester.tap(find.byKey(const Key('review-detected-fields')));
   await tester.pumpAndSettle();
+}
+
+bool _guideButtonIsPulsing(WidgetTester tester, String targetId) {
+  final dynamic widget = tester.widget(
+    find.byKey(Key('guide-button-$targetId')),
+  );
+  return widget.isPulsing as bool;
 }

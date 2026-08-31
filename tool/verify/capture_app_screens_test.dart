@@ -1,9 +1,22 @@
 import 'dart:io';
 
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:res_quill/src/app/res_quill_app.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _themePreferenceKeyForCapture = 'resquill.theme';
+const _seenGuideScreensPreferenceKeyForCapture = 'resquill.guide.seenScreens';
+const _allSeenGuideScreensForCapture = [
+  'compare',
+  'input',
+  'report',
+  'start',
+  'validation',
+];
 
 const _failingApaPaste =
     'Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and '
@@ -40,11 +53,15 @@ void main() {
     for (final config in configs) {
       await _pumpApp(tester, config);
       await _save(tester, '${config.name}_01_start');
+      await _openGuide(tester);
+      await _save(tester, '${config.name}_guide_01_start');
 
       await _pumpApp(tester, config);
       await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
       await _settle(tester);
       await _save(tester, '${config.name}_02_selection');
+      await _openGuide(tester);
+      await _save(tester, '${config.name}_guide_02_selection');
 
       await _pumpApp(tester, config);
       await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
@@ -52,18 +69,24 @@ void main() {
       await _loadDefaultExample(tester);
       await _jumpToTop(tester);
       await _save(tester, '${config.name}_03_input_spss_independent');
+      await _openGuide(tester);
+      await _save(tester, '${config.name}_guide_03_input_spss_independent');
 
       await _pumpApp(tester, config);
       await _pasteAndReview(tester, _failingApaPaste);
       await _pressButtonKey(tester, const Key('confirm-detected-values'));
       await tester.ensureVisible(find.text('Fail').first);
       await _save(tester, '${config.name}_04_validation_failing');
+      await _openGuide(tester);
+      await _save(tester, '${config.name}_guide_04_validation_failing');
 
       await _pumpApp(tester, config);
       await _pasteAndReview(tester, _reportApaPaste);
       await _pressButtonKey(tester, const Key('confirm-detected-values'));
       await _pressButtonKey(tester, const Key('generate-report'));
       await _save(tester, '${config.name}_05_report');
+      await _openGuide(tester);
+      await _save(tester, '${config.name}_guide_05_report');
     }
   });
 }
@@ -126,6 +149,10 @@ List<String> _monoCaptureFontPaths(List<String> fallback) {
 }
 
 Future<void> _pumpApp(WidgetTester tester, _CaptureConfig config) async {
+  SharedPreferences.setMockInitialValues({
+    _themePreferenceKeyForCapture: config.light ? 'light' : 'dark',
+    _seenGuideScreensPreferenceKeyForCapture: _allSeenGuideScreensForCapture,
+  });
   tester.view.physicalSize = config.size;
   tester.view.devicePixelRatio = 1;
   await tester.pumpWidget(const SizedBox.shrink());
@@ -134,10 +161,11 @@ Future<void> _pumpApp(WidgetTester tester, _CaptureConfig config) async {
     RepaintBoundary(key: _captureKey, child: const MainApp()),
   );
   await _settle(tester);
-  if (config.light) {
-    await tester.tap(find.widgetWithText(FilledButton, 'BRIGHT VIEW'));
-    await _settle(tester);
-  }
+}
+
+Future<void> _openGuide(WidgetTester tester) async {
+  await _pressButtonKey(tester, const Key('guide-replay'));
+  await _settle(tester);
 }
 
 Future<void> _loadDefaultExample(WidgetTester tester) async {

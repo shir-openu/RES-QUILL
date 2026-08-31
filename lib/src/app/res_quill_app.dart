@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_constants.dart';
 import '../paste/paste.dart';
 import '../report/report.dart';
 import '../stats/stats.dart';
+
+part 'res_quill_guide.dart';
 
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
@@ -67,14 +71,22 @@ const _pasteExamples = [
   ),
 ];
 
-class _MainAppState extends State<MainApp> {
+class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _guideRegistry = _GuideTargetRegistry();
 
   bool _lightTheme = false;
+  bool _preferencesLoaded = false;
   _Screen _screen = _Screen.start;
   _InputMode _inputMode = _InputMode.paste;
   TTestKind _manualKind = TTestKind.independentWelch;
   _PasteExample _selectedExample = _pasteExamples.first;
+  SharedPreferences? _preferences;
+  Set<String> _seenGuideScreens = <String>{};
+  _GuideSession? _guideSession;
+  _Screen? _pulsingGuideScreen;
+  late final AnimationController _guidePulseController;
+  Timer? _guidePulseTimer;
 
   final _pasteController = TextEditingController();
   final _outcomeController = TextEditingController(text: 'scores');
@@ -116,7 +128,21 @@ class _MainAppState extends State<MainApp> {
   String _copyStatus = '';
 
   @override
+  void initState() {
+    super.initState();
+    _guidePulseController = AnimationController(
+      vsync: this,
+      duration: _guidePulseDuration,
+    );
+    HardwareKeyboard.instance.addHandler(_handleGuideKeyEvent);
+    unawaited(_loadPreferences());
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGuideKeyEvent);
+    _guidePulseTimer?.cancel();
+    _guidePulseController.dispose();
     _pasteController.dispose();
     _outcomeController.dispose();
     _alphaController.dispose();
@@ -158,26 +184,287 @@ class _MainAppState extends State<MainApp> {
           final colors = _RqColors.of(context);
           return Scaffold(
             backgroundColor: colors.background,
-            body: Stack(
-              children: [
-                const _BackgroundLayer(),
-                Positioned.fill(child: _currentScreen()),
-                Positioned(
-                  top: 18,
-                  right: 18,
-                  child: _ThemeToggle(
-                    isLight: _lightTheme,
-                    onPressed: () {
-                      setState(() => _lightTheme = !_lightTheme);
-                    },
+            body: _GuideScope(
+              registry: _guideRegistry,
+              openCardGuide: _openCardGuide,
+              pulsingScreen: _pulsingGuideScreen,
+              pulseAnimation: _guidePulseController,
+              child: Stack(
+                children: [
+                  const _BackgroundLayer(),
+                  Positioned.fill(child: _currentScreen()),
+                  Positioned(
+                    top: 18,
+                    left: 18,
+                    right: 18,
+                    child: _TopControls(
+                      isLight: _lightTheme,
+                      onReplayGuide: () => _startGuide(_screen),
+                      onToggleTheme: _toggleTheme,
+                      onSettings: _showSettings,
+                    ),
                   ),
-                ),
-              ],
+                  _GuideOverlay(
+                    registry: _guideRegistry,
+                    session: _guideSession,
+                    onBack: _previousGuideTip,
+                    onNext: _nextGuideTip,
+                    onClose: _closeGuide,
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _loadPreferences() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (!mounted) {
+      return;
+    }
+    final savedTheme = preferences.getString(_themePreferenceKey);
+    final seenScreens =
+        preferences.getStringList(_guideSeenScreensPreferenceKey) ?? const [];
+    setState(() {
+      _preferences = preferences;
+      _lightTheme = savedTheme == _themePreferenceLight;
+      _seenGuideScreens = seenScreens.toSet();
+      _preferencesLoaded = true;
+    });
+    _afterScreenChanged();
+  }
+
+  Future<SharedPreferences> _readyPreferences() async {
+    final existing = _preferences;
+    if (existing != null) {
+      return existing;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    if (mounted) {
+      _preferences = preferences;
+    }
+    return preferences;
+  }
+
+  void _toggleTheme() {
+    final nextIsLight = !_lightTheme;
+    setState(() => _lightTheme = nextIsLight);
+    unawaited(_writeThemePreference(nextIsLight));
+  }
+
+  Future<void> _writeThemePreference(bool isLight) async {
+    final preferences = await _readyPreferences();
+    await preferences.setString(
+      _themePreferenceKey,
+      isLight ? _themePreferenceLight : _themePreferenceDark,
+    );
+  }
+
+  void _showSettings() {
+    final navigatorContext = _navigatorKey.currentContext;
+    if (navigatorContext == null) {
+      return;
+    }
+    showDialog<void>(
+      context: navigatorContext,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return _SettingsDialog(
+              isLight: _lightTheme,
+              onReplayGuide: () {
+                Navigator.of(dialogContext).pop();
+                _startGuide(_screen);
+              },
+              onResetSeen: () {
+                Navigator.of(dialogContext).pop();
+                _resetGuideSeenState();
+              },
+              onToggleTheme: () {
+                _toggleTheme();
+                setDialogState(() {});
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _resetGuideSeenState() {
+    _guidePulseTimer?.cancel();
+    _guidePulseController.stop();
+    setState(() {
+      _seenGuideScreens = <String>{};
+      _pulsingGuideScreen = null;
+    });
+    unawaited(_removeSeenGuidePreference());
+    _afterScreenChanged();
+  }
+
+  Future<void> _removeSeenGuidePreference() async {
+    final preferences = await _readyPreferences();
+    await preferences.remove(_guideSeenScreensPreferenceKey);
+  }
+
+  void _afterScreenChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _handleScreenEntered();
+      }
+    });
+  }
+
+  void _handleScreenEntered() {
+    if (!_preferencesLoaded || _guideSession != null) {
+      return;
+    }
+    if (_screen == _Screen.start) {
+      if (!_seenGuideScreens.contains(_screen.guideStorageId)) {
+        _startGuide(_Screen.start);
+      }
+      return;
+    }
+    _pulseGuideButtons(_screen);
+  }
+
+  void _markGuideScreenSeen(_Screen screen) {
+    final storageId = screen.guideStorageId;
+    if (_seenGuideScreens.contains(storageId)) {
+      return;
+    }
+    _seenGuideScreens = {..._seenGuideScreens, storageId};
+    unawaited(_writeSeenGuideScreens());
+  }
+
+  Future<void> _writeSeenGuideScreens() async {
+    final preferences = await _readyPreferences();
+    await preferences.setStringList(
+      _guideSeenScreensPreferenceKey,
+      _seenGuideScreens.toList()..sort(),
+    );
+  }
+
+  void _pulseGuideButtons(_Screen screen, {bool force = false}) {
+    if (screen == _Screen.start || _guideStepsFor(screen).isEmpty) {
+      return;
+    }
+    if (!force && _seenGuideScreens.contains(screen.guideStorageId)) {
+      return;
+    }
+    _markGuideScreenSeen(screen);
+    _guidePulseTimer?.cancel();
+    _guidePulseController.stop();
+    _guidePulseController.value = 0;
+    setState(() => _pulsingGuideScreen = screen);
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      _guidePulseController.repeat(period: _guidePulseDuration);
+    }
+    _guidePulseTimer = Timer(
+      _guidePulseTotal + const Duration(milliseconds: 40),
+      _stopGuidePulse,
+    );
+  }
+
+  void _stopGuidePulse() {
+    if (_pulsingGuideScreen == null) {
+      return;
+    }
+    _guidePulseTimer?.cancel();
+    _guidePulseController.stop();
+    if (mounted) {
+      setState(() => _pulsingGuideScreen = null);
+    } else {
+      _pulsingGuideScreen = null;
+    }
+  }
+
+  void _startGuide(_Screen screen) {
+    final steps = _guideStepsFor(screen);
+    if (steps.isEmpty) {
+      return;
+    }
+    _stopGuidePulse();
+    _markGuideScreenSeen(screen);
+    setState(() {
+      _guideSession = _GuideSession(screen: screen, index: 0);
+    });
+  }
+
+  void _openCardGuide(_Screen screen, String targetId) {
+    final steps = _guideStepsFor(screen);
+    final index = steps.indexWhere((step) => step.targetId == targetId);
+    if (index < 0) {
+      return;
+    }
+    _stopGuidePulse();
+    _markGuideScreenSeen(screen);
+    setState(() {
+      _guideSession = _GuideSession(
+        screen: screen,
+        index: index,
+        singleTargetId: targetId,
+      );
+    });
+  }
+
+  void _closeGuide() {
+    if (_guideSession == null) {
+      return;
+    }
+    setState(() => _guideSession = null);
+    _afterScreenChanged();
+  }
+
+  void _nextGuideTip() {
+    final session = _guideSession;
+    if (session == null || session.singleTargetId != null) {
+      return;
+    }
+    final steps = _guideStepsFor(session.screen);
+    if (session.index >= steps.length - 1) {
+      _closeGuide();
+      return;
+    }
+    setState(() {
+      _guideSession = session.copyWith(index: session.index + 1);
+    });
+  }
+
+  void _previousGuideTip() {
+    final session = _guideSession;
+    if (session == null ||
+        session.singleTargetId != null ||
+        session.index <= 0) {
+      return;
+    }
+    setState(() {
+      _guideSession = session.copyWith(index: session.index - 1);
+    });
+  }
+
+  bool _handleGuideKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent || _guideSession == null) {
+      return false;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      _closeGuide();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.arrowRight) {
+      _nextGuideTip();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _previousGuideTip();
+      return true;
+    }
+    return false;
   }
 
   ThemeData _themeData(Brightness brightness) {
@@ -307,7 +594,7 @@ class _MainAppState extends State<MainApp> {
         checks: _validationChecks,
         input: _validationInput,
         result: _computedResult,
-        onBack: () => setState(() => _screen = _Screen.input),
+        onBack: _openExistingInput,
         onGenerate: _generateReport,
       ),
       _Screen.report => _ReportScreen(
@@ -315,8 +602,8 @@ class _MainAppState extends State<MainApp> {
         result: _computedResult,
         options: _reportOptions,
         copyStatus: _copyStatus,
-        onBack: () => setState(() => _screen = _Screen.validation),
-        onEdit: () => setState(() => _screen = _Screen.input),
+        onBack: _openValidationScreen,
+        onEdit: _openExistingInput,
         onCopy: _copyReport,
       ),
     };
@@ -324,10 +611,22 @@ class _MainAppState extends State<MainApp> {
 
   void _openStart() {
     setState(() => _screen = _Screen.start);
+    _afterScreenChanged();
   }
 
   void _openSelection() {
     setState(() => _screen = _Screen.selection);
+    _afterScreenChanged();
+  }
+
+  void _openExistingInput() {
+    setState(() => _screen = _Screen.input);
+    _afterScreenChanged();
+  }
+
+  void _openValidationScreen() {
+    setState(() => _screen = _Screen.validation);
+    _afterScreenChanged();
   }
 
   void _openPasteInput() {
@@ -340,6 +639,7 @@ class _MainAppState extends State<MainApp> {
       _inputError = null;
       _pasteController.clear();
     });
+    _afterScreenChanged();
   }
 
   void _openExample() {
@@ -374,6 +674,7 @@ class _MainAppState extends State<MainApp> {
       _inputError = null;
     });
     _reviewPaste();
+    _afterScreenChanged();
   }
 
   void _showSpreadsheetBoundary() {
@@ -411,6 +712,7 @@ class _MainAppState extends State<MainApp> {
         _fillManualDefaultsFor(kind);
       }
     });
+    _afterScreenChanged();
   }
 
   bool get _allStructuredFieldsAreEmpty {
@@ -562,6 +864,7 @@ class _MainAppState extends State<MainApp> {
       _inputError = null;
       _screen = _Screen.validation;
     });
+    _afterScreenChanged();
   }
 
   ValidationCheck _alphaCheck(TTestReportOptions options) {
@@ -589,6 +892,7 @@ class _MainAppState extends State<MainApp> {
       );
       _screen = _Screen.report;
     });
+    _afterScreenChanged();
   }
 
   bool get _hasFailures {
@@ -1053,20 +1357,29 @@ class _BrandCard extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final actions = [
-                _ActionButton(
-                  label: 'Paste output',
-                  tone: _ButtonTone.primary,
-                  onPressed: onPaste,
+                _GuideTarget(
+                  id: 'paste_output',
+                  child: _ActionButton(
+                    label: 'Paste output',
+                    tone: _ButtonTone.primary,
+                    onPressed: onPaste,
+                  ),
                 ),
-                _ActionButton(
-                  label: 'Type values',
-                  tone: _ButtonTone.secondary,
-                  onPressed: onManual,
+                _GuideTarget(
+                  id: 'manual_entry',
+                  child: _ActionButton(
+                    label: 'Type values',
+                    tone: _ButtonTone.secondary,
+                    onPressed: onManual,
+                  ),
                 ),
-                _ActionButton(
-                  label: 'Try an example',
-                  tone: _ButtonTone.tertiary,
-                  onPressed: onExample,
+                _GuideTarget(
+                  id: 'try_example',
+                  child: _ActionButton(
+                    label: 'Try an example',
+                    tone: _ButtonTone.tertiary,
+                    onPressed: onExample,
+                  ),
                 ),
               ];
               if (constraints.maxWidth < 520) {
@@ -1105,14 +1418,17 @@ class _AnalysisAreaPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Choose what you are reporting.',
-                key: const Key('analysis-area-title'),
-                style: TextStyle(
-                  color: colors.title,
-                  fontSize: 20.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.18,
+              _GuideTarget(
+                id: 'analysis_area_heading',
+                child: Text(
+                  'Choose what you are reporting.',
+                  key: const Key('analysis-area-title'),
+                  style: TextStyle(
+                    color: colors.title,
+                    fontSize: 20.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.18,
+                  ),
                 ),
               ),
               const SizedBox(height: 5),
@@ -1135,6 +1451,7 @@ class _AnalysisAreaPanel extends StatelessWidget {
               title: 't tests',
               description: 'Independent, paired, and one-sample tests',
               bars: const [0.72, 0.46, 0.62],
+              guideTargetId: 'compare_area_card',
               onTap: onCompare,
             ),
             _ChoiceCard(
@@ -1145,6 +1462,7 @@ class _AnalysisAreaPanel extends StatelessWidget {
               title: 'Relationships & prediction',
               description: 'Correlations and regression',
               bars: const [0.84, 0.58, 0.70],
+              guideTargetId: 'relationships_coming_later',
               disabled: true,
             ),
             _ChoiceCard(
@@ -1155,6 +1473,7 @@ class _AnalysisAreaPanel extends StatelessWidget {
               title: 'Categorical data',
               description: "Chi-square and Fisher's exact",
               bars: const [0.54, 0.76, 0.44],
+              guideTargetId: 'categorical_coming_later',
               disabled: true,
             ),
             _ChoiceCard(
@@ -1165,6 +1484,7 @@ class _AnalysisAreaPanel extends StatelessWidget {
               title: 'Assumptions & diagnostics',
               description: 'Normality and variance checks',
               bars: const [0.60, 0.38, 0.66],
+              guideTargetId: 'diagnostics_coming_later',
               disabled: true,
             ),
           ],
@@ -1205,6 +1525,8 @@ class _SelectionScreen extends StatelessWidget {
                 title: 'Equal variances assumed',
                 description: 'The SPSS Student row',
                 bars: const [0.72, 0.46, 0.62],
+                guideTargetId: 'student_test_path',
+                guideScreen: _Screen.selection,
                 onTap: () => onSelected(TTestKind.independentStudent),
               ),
               _ChoiceCard(
@@ -1214,6 +1536,8 @@ class _SelectionScreen extends StatelessWidget {
                 title: 'Equal variances not assumed',
                 description: 'The SPSS Welch row',
                 bars: const [0.84, 0.58, 0.70],
+                guideTargetId: 'welch_test_path',
+                guideScreen: _Screen.selection,
                 onTap: () => onSelected(TTestKind.independentWelch),
               ),
               _ChoiceCard(
@@ -1223,6 +1547,8 @@ class _SelectionScreen extends StatelessWidget {
                 title: 'Paired samples',
                 description: 'Same people measured twice',
                 bars: const [0.54, 0.76, 0.44],
+                guideTargetId: 'paired_test_path',
+                guideScreen: _Screen.selection,
                 onTap: () => onSelected(TTestKind.pairedSamples),
               ),
               _ChoiceCard(
@@ -1232,6 +1558,8 @@ class _SelectionScreen extends StatelessWidget {
                 title: 'One sample',
                 description: 'One group compared with a number',
                 bars: const [0.60, 0.38, 0.66],
+                guideTargetId: 'one_sample_test_path',
+                guideScreen: _Screen.selection,
                 onTap: () => onSelected(TTestKind.oneSample),
               ),
             ],
@@ -1469,10 +1797,18 @@ class _PastePanel extends StatelessWidget {
         : 416.0;
     return _GlassPanel(
       accent: colors.cyan,
+      guideTargetId: 'paste_panel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SectionTop(title: copy.pasteTitle, body: copy.pasteBody),
+          _SectionTop(
+            title: copy.pasteTitle,
+            body: copy.pasteBody,
+            guide: const _GuideButtonConfig(
+              screen: _Screen.input,
+              targetId: 'paste_panel',
+            ),
+          ),
           _ExampleControls(
             keyPrefix: 'paste',
             selectedExample: selectedExample,
@@ -1775,10 +2111,17 @@ class _ManualFormPanel extends StatelessWidget {
     final colors = _RqColors.of(context);
     return _GlassPanel(
       accent: colors.violet,
+      guideTargetId: 'structured_fields_panel',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionTop(title: 'Type values'),
+          const _SectionTop(
+            title: 'Type values',
+            guide: _GuideButtonConfig(
+              screen: _Screen.input,
+              targetId: 'structured_fields_panel',
+            ),
+          ),
           _ExampleControls(
             keyPrefix: 'manual',
             selectedExample: selectedExample,
@@ -1813,7 +2156,10 @@ class _ManualFormPanel extends StatelessWidget {
           _FieldRow(
             children: [
               _Field(controller: outcomeController, label: 'Outcome label'),
-              _Field(controller: alphaController, label: 'Alpha'),
+              _Field(
+                controller: alphaController,
+                label: 'Alpha (course level)',
+              ),
             ],
           ),
           _FieldRow(
@@ -1852,12 +2198,18 @@ class _ManualFormPanel extends StatelessWidget {
           _FieldRow(
             children: [
               _Field(controller: reportedTController, label: 't'),
-              _Field(controller: reportedDfController, label: 'df'),
+              _Field(
+                controller: reportedDfController,
+                label: 'df (Welch can be decimal)',
+              ),
             ],
           ),
           _FieldRow(
             children: [
-              _Field(controller: reportedPController, label: 'p'),
+              _Field(
+                controller: reportedPController,
+                label: 'p (SPSS .000: use < .001)',
+              ),
               _Field(
                 controller: reportedMeanDifferenceController,
                 label: 'Mean difference',
@@ -2004,20 +2356,34 @@ class _ValidationScreen extends StatelessWidget {
               final wide = constraints.maxWidth >= 980;
               final summary = _GlassPanel(
                 accent: colors.green,
+                guideTargetId: 'validation_summary',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _SectionTop(title: _parsedTitle(input)),
+                    _SectionTop(
+                      title: _parsedTitle(input),
+                      guide: const _GuideButtonConfig(
+                        screen: _Screen.validation,
+                        targetId: 'validation_summary',
+                      ),
+                    ),
                     _ValueSummary(result: result, input: input, checks: checks),
                   ],
                 ),
               );
               final decisions = _GlassPanel(
                 accent: colors.violet,
+                guideTargetId: 'validation_decisions',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _SectionTop(title: 'Problems to fix'),
+                    const _SectionTop(
+                      title: 'Problems to fix',
+                      guide: _GuideButtonConfig(
+                        screen: _Screen.validation,
+                        targetId: 'validation_decisions',
+                      ),
+                    ),
                     if (failedChecks.isEmpty)
                       const _NoticeBox(
                         tone: _StatusTone.accepted,
@@ -2277,6 +2643,7 @@ class _ReportScreen extends StatelessWidget {
               final wide = constraints.maxWidth >= 980;
               final prose = _GlassPanel(
                 accent: colors.cyan,
+                guideTargetId: 'report_prose',
                 child: _ReportProse(
                   report: output,
                   copyStatus: copyStatus,
@@ -2288,12 +2655,14 @@ class _ReportScreen extends StatelessWidget {
                 children: [
                   _GlassPanel(
                     accent: colors.violet,
+                    guideTargetId: 'ci_chart_panel',
                     padding: const EdgeInsets.all(18),
                     child: _ConfidenceIntervalChart(result: result),
                   ),
                   const SizedBox(height: 16),
                   _GlassPanel(
                     accent: colors.green,
+                    guideTargetId: 'distribution_panel',
                     padding: const EdgeInsets.all(18),
                     child: _DistributionChart(result: result, options: options),
                   ),
@@ -2343,7 +2712,13 @@ class _ReportProse extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionTop(title: 'APA wording'),
+        const _SectionTop(
+          title: 'APA wording',
+          guide: _GuideButtonConfig(
+            screen: _Screen.report,
+            targetId: 'report_prose',
+          ),
+        ),
         if (output.isBlocked)
           _NoticeBox(
             tone: _StatusTone.error,
@@ -2377,15 +2752,9 @@ class _ReportProse extends StatelessWidget {
               title: 'Rounding cautions',
               items: output.roundingCautions,
             ),
-          _Disclosure(
-            showLabel: 'Show claims',
-            hideLabel: 'Hide claims',
-            children: [
-              _SupportGrid(
-                supported: output.supportedClaims,
-                unsupported: output.unsupportedClaims,
-              ),
-            ],
+          _SupportGrid(
+            supported: output.supportedClaims,
+            unsupported: output.unsupportedClaims,
           ),
           const SizedBox(height: 12),
           _Disclosure(
@@ -2578,15 +2947,13 @@ class _ConfidenceIntervalChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Confidence interval',
-          style: TextStyle(
-            color: colors.cardTitle,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+        const _SectionTop(
+          title: 'Confidence interval',
+          guide: _GuideButtonConfig(
+            screen: _Screen.report,
+            targetId: 'ci_chart_panel',
           ),
         ),
-        const SizedBox(height: 14),
         _ChartFrame(
           painter: _CiPainter(colors: colors, result: result),
           semanticsLabel: ci == null
@@ -2632,15 +2999,13 @@ class _DistributionChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          't distribution',
-          style: TextStyle(
-            color: colors.cardTitle,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+        const _SectionTop(
+          title: 't distribution',
+          guide: _GuideButtonConfig(
+            screen: _Screen.report,
+            targetId: 'distribution_panel',
           ),
         ),
-        const SizedBox(height: 8),
         Text(
           result == null
               ? 'UNKNOWN'
@@ -3092,10 +3457,11 @@ class _ScreenShell extends StatelessWidget {
 }
 
 class _SectionTop extends StatelessWidget {
-  const _SectionTop({required this.title, this.body});
+  const _SectionTop({required this.title, this.body, this.guide});
 
   final String title;
   final String? body;
+  final _GuideButtonConfig? guide;
 
   @override
   Widget build(BuildContext context) {
@@ -3125,7 +3491,19 @@ class _SectionTop extends StatelessWidget {
         );
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: heading,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: heading),
+              if (guide != null) ...[
+                const SizedBox(width: 10),
+                _CardGuideButton(
+                  screen: guide!.screen,
+                  targetId: guide!.targetId,
+                ),
+              ],
+            ],
+          ),
         );
       },
     );
@@ -3138,17 +3516,19 @@ class _GlassPanel extends StatelessWidget {
     required this.child,
     this.minHeight,
     this.padding = const EdgeInsets.all(22),
+    this.guideTargetId,
   });
 
   final Color accent;
   final Widget child;
   final double? minHeight;
   final EdgeInsets padding;
+  final String? guideTargetId;
 
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
+    final panel = Container(
       constraints: BoxConstraints(minHeight: minHeight ?? 0),
       decoration: BoxDecoration(
         color: colors.surface.withValues(alpha: 0.62),
@@ -3174,6 +3554,11 @@ class _GlassPanel extends StatelessWidget {
         ],
       ),
     );
+    final targetId = guideTargetId;
+    if (targetId == null) {
+      return panel;
+    }
+    return _GuideTarget(id: targetId, child: panel);
   }
 }
 
@@ -3220,6 +3605,8 @@ class _ChoiceCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.bars,
+    this.guideTargetId,
+    this.guideScreen,
     this.disabled = false,
     this.onTap,
   });
@@ -3230,6 +3617,8 @@ class _ChoiceCard extends StatelessWidget {
   final String title;
   final String description;
   final List<double> bars;
+  final String? guideTargetId;
+  final _Screen? guideScreen;
   final bool disabled;
   final VoidCallback? onTap;
 
@@ -3281,7 +3670,28 @@ class _ChoiceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatusLabel(tone: statusTone, text: status, accent: accent),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _StatusLabel(
+                          tone: statusTone,
+                          text: status,
+                          accent: accent,
+                        ),
+                      ),
+                    ),
+                    if (guideTargetId != null && guideScreen != null) ...[
+                      const SizedBox(width: 10),
+                      _CardGuideButton(
+                        screen: guideScreen!,
+                        targetId: guideTargetId!,
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Text(
                   title,
@@ -3312,15 +3722,20 @@ class _ChoiceCard extends StatelessWidget {
     );
 
     if (disabled) {
-      return Semantics(
+      final card = Semantics(
         button: true,
         enabled: false,
         label: '$title. $description. $status.',
         child: ExcludeSemantics(child: ExcludeFocus(child: content)),
       );
+      final targetId = guideTargetId;
+      if (targetId == null) {
+        return card;
+      }
+      return _GuideTarget(id: targetId, child: card);
     }
 
-    return Semantics(
+    final card = Semantics(
       button: true,
       enabled: true,
       label: '$title. $description. $status.',
@@ -3332,6 +3747,11 @@ class _ChoiceCard extends StatelessWidget {
         ),
       ),
     );
+    final targetId = guideTargetId;
+    if (targetId == null) {
+      return card;
+    }
+    return _GuideTarget(id: targetId, child: card);
   }
 }
 
