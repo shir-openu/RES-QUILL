@@ -1952,7 +1952,7 @@ class _PasteReview extends StatelessWidget {
                   RadioListTile<PasteTTestCandidate>(
                     value: candidate,
                     title: Text(candidate.label),
-                    subtitle: Text(_kindLabel(candidate.kind)),
+                    subtitle: Text(_varianceRowSubtitle(candidate)),
                     contentPadding: EdgeInsets.zero,
                   ),
               ],
@@ -1974,16 +1974,23 @@ class _PasteReview extends StatelessWidget {
                   key: Key('paste-tail-two-tailed'),
                   value: ReportedPValueTail.twoTailed,
                   title: Text('Two-tailed'),
+                  subtitle: Text('Use SPSS Sig. (2-tailed).'),
                   contentPadding: EdgeInsets.zero,
                 ),
                 RadioListTile<ReportedPValueTail>(
                   value: ReportedPValueTail.less,
                   title: Text('Lower-tail'),
+                  subtitle: Text(
+                    'Use only if the assignment predicts lower values.',
+                  ),
                   contentPadding: EdgeInsets.zero,
                 ),
                 RadioListTile<ReportedPValueTail>(
                   value: ReportedPValueTail.greater,
                   title: Text('Upper-tail'),
+                  subtitle: Text(
+                    'Use only if the assignment predicts higher values.',
+                  ),
                   contentPadding: EdgeInsets.zero,
                 ),
               ],
@@ -1995,9 +2002,9 @@ class _PasteReview extends StatelessWidget {
           for (final missing in missingFields)
             _IssueRow(
               tone: _StatusTone.warning,
-              field: missing.key?.label ?? 'Confirmation',
-              title: missing.reason,
-              body: 'Fix this before continuing.',
+              field: _missingFieldLabel(missing),
+              title: _missingTitle(missing),
+              body: _missingBody(missing),
             ),
         ],
         const SizedBox(height: 8),
@@ -2036,6 +2043,110 @@ class _PasteReview extends StatelessWidget {
     }
     return candidate?.reportedPValueTail ==
         ReportedPValueTail.oneTailedObservedDirection;
+  }
+
+  static String _varianceRowSubtitle(PasteTTestCandidate candidate) {
+    final rowName = candidate.kind == TTestKind.independentStudent
+        ? 'Student row'
+        : 'Welch row';
+    final leveneP = candidate.number(PasteFieldKey.leveneP);
+    if (leveneP == null) {
+      return candidate.kind == TTestKind.independentStudent
+          ? "$rowName. Use when Levene's Sig. is .05 or larger."
+          : "$rowName. Use when Levene's Sig. is below .05.";
+    }
+
+    final pointsToWelch = leveneP.value < 0.05;
+    final pointsToThisRow =
+        pointsToWelch == (candidate.kind == TTestKind.independentWelch);
+    final suggestion = pointsToThisRow
+        ? 'SPSS points to this row'
+        : 'use this only if assigned';
+    return "$rowName. Levene's Sig. = ${_fmtPasteNumber(leveneP)}; "
+        'with .05 rule, $suggestion.';
+  }
+
+  static String _fmtPasteNumber(PasteNumber number) {
+    final prefix = number.relation == ReportedRelation.equalRounded
+        ? ''
+        : '${number.relationSymbol} ';
+    return '$prefix${_fmt(number.value)}';
+  }
+
+  static String _missingFieldLabel(PasteMissingField missing) {
+    return switch (missing.key) {
+      PasteFieldKey.primaryLabel => 'Group 1 label',
+      PasteFieldKey.primaryN => 'Group 1 n',
+      PasteFieldKey.primaryMean => 'Group 1 mean',
+      PasteFieldKey.primaryStandardDeviation => 'Group 1 SD',
+      PasteFieldKey.secondaryLabel => 'Group 2 label',
+      PasteFieldKey.secondaryN => 'Group 2 n',
+      PasteFieldKey.secondaryMean => 'Group 2 mean',
+      PasteFieldKey.secondaryStandardDeviation => 'Group 2 SD',
+      PasteFieldKey.pairedMeanDifference => 'Paired mean difference',
+      PasteFieldKey.pairedDifferenceStandardDeviation => 'Paired difference SD',
+      PasteFieldKey.pairedCorrelation => 'Paired correlation',
+      PasteFieldKey.referenceMean => 'Reference mean',
+      PasteFieldKey.reportedT => 't',
+      PasteFieldKey.reportedDegreesOfFreedom => 'df',
+      PasteFieldKey.reportedP => 'p value',
+      PasteFieldKey.reportedMeanDifference => 'Mean difference',
+      PasteFieldKey.reportedStandardError => 'SE',
+      PasteFieldKey.ciLower => 'CI lower',
+      PasteFieldKey.ciUpper => 'CI upper',
+      PasteFieldKey.confidenceLevel => 'CI confidence level',
+      PasteFieldKey.leveneF => "Levene's F",
+      PasteFieldKey.leveneP => "Levene's Sig.",
+      null => 'Confirmation',
+    };
+  }
+
+  static String _missingTitle(PasteMissingField missing) {
+    return switch (missing.key) {
+      PasteFieldKey.confidenceLevel => 'Enter the CI level, usually .95.',
+      PasteFieldKey.reportedT => 'Find t in the selected test row.',
+      PasteFieldKey.reportedDegreesOfFreedom =>
+        'Find df in the selected test row.',
+      PasteFieldKey.reportedP => 'Find p or Sig. in the selected test row.',
+      PasteFieldKey.primaryN ||
+      PasteFieldKey.primaryMean ||
+      PasteFieldKey.primaryStandardDeviation ||
+      PasteFieldKey.secondaryN ||
+      PasteFieldKey.secondaryMean ||
+      PasteFieldKey.secondaryStandardDeviation =>
+        'Find this value in Group Statistics.',
+      PasteFieldKey.referenceMean => 'Enter the test value for one sample.',
+      PasteFieldKey.pairedMeanDifference ||
+      PasteFieldKey.pairedDifferenceStandardDeviation =>
+        'Find this value in Paired Differences.',
+      _ => '${_missingFieldLabel(missing)} was not found.',
+    };
+  }
+
+  static String _missingBody(PasteMissingField missing) {
+    return switch (missing.key) {
+      PasteFieldKey.confidenceLevel =>
+        'Look for 95% before Confidence Interval; type .95.',
+      PasteFieldKey.reportedT => 'Copy the number from the t column.',
+      PasteFieldKey.reportedDegreesOfFreedom =>
+        'Copy the df value; decimals are ok for Welch.',
+      PasteFieldKey.reportedP =>
+        'Use Sig. (2-tailed), or type < .001 for SPSS .000.',
+      PasteFieldKey.primaryN => 'Copy Group 1 N.',
+      PasteFieldKey.primaryMean => 'Copy Group 1 Mean.',
+      PasteFieldKey.primaryStandardDeviation => 'Copy Group 1 Std. Deviation.',
+      PasteFieldKey.secondaryN => 'Copy Group 2 N.',
+      PasteFieldKey.secondaryMean => 'Copy Group 2 Mean.',
+      PasteFieldKey.secondaryStandardDeviation =>
+        'Copy Group 2 Std. Deviation.',
+      PasteFieldKey.referenceMean =>
+        'Use the comparison value named in your output or assignment.',
+      PasteFieldKey.pairedMeanDifference =>
+        'Copy the Mean from the Paired Differences row.',
+      PasteFieldKey.pairedDifferenceStandardDeviation =>
+        'Copy the Std. Deviation from Paired Differences.',
+      _ => 'Choose or type the missing value before continuing.',
+    };
   }
 }
 
@@ -2158,7 +2269,7 @@ class _ManualFormPanel extends StatelessWidget {
               _Field(controller: outcomeController, label: 'Outcome label'),
               _Field(
                 controller: alphaController,
-                label: 'Alpha (course level)',
+                label: 'Alpha (course, usually .05)',
               ),
             ],
           ),
@@ -2167,7 +2278,7 @@ class _ManualFormPanel extends StatelessWidget {
               DropdownButtonFormField<ReportedPValueTail>(
                 initialValue: manualTail,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Tail'),
+                decoration: const InputDecoration(labelText: 'p direction'),
                 items: const [
                   DropdownMenuItem(
                     value: ReportedPValueTail.twoTailed,
@@ -2190,7 +2301,7 @@ class _ManualFormPanel extends StatelessWidget {
               ),
               _Field(
                 controller: confidenceController,
-                label: 'Confidence level',
+                label: 'CI level (usually .95)',
               ),
             ],
           ),
@@ -2346,7 +2457,7 @@ class _ValidationScreen extends StatelessWidget {
           _PageHead(
             kicker: 'Check',
             title: 'Check the numbers.',
-            body: 'Fix fails before generating the report.',
+            body: 'Fix failed rows before generating the report.',
             backLabel: 'Back to input',
             onBack: onBack,
           ),
@@ -2401,7 +2512,7 @@ class _ValidationScreen extends StatelessWidget {
                     if (_hasFailures)
                       const _NoticeBox(
                         tone: _StatusTone.error,
-                        text: 'Fix failed values before generating a report.',
+                        text: 'Fix failed rows before generating a report.',
                       ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -2542,7 +2653,7 @@ class _ValueSummary extends StatelessWidget {
           tone: failures > 0 ? _StatusTone.error : _StatusTone.accepted,
           label: 'Fails',
           value: failures > 0 ? '$failures fail' : '0 fail',
-          body: failures > 0 ? 'Fix before report.' : 'Ready for report.',
+          body: failures > 0 ? 'Fix failed rows first.' : 'Ready for report.',
         ),
       ],
     );
@@ -4367,21 +4478,21 @@ class _InputCopy {
       _InputMode.paste => const _InputCopy(
         kicker: 'Input',
         title: 'Paste your t-test output.',
-        body: 'Paste, load an example, then review.',
+        body: 'Paste SPSS, JASP, jamovi, or APA output.',
         pasteTitle: 'Paste output',
         pasteBody: null,
       ),
       _InputMode.example => const _InputCopy(
         kicker: 'Input',
         title: 'Example loaded.',
-        body: 'Review it, or choose another example.',
+        body: 'Review the detected values before reporting.',
         pasteTitle: 'Example output',
         pasteBody: null,
       ),
       _InputMode.manual => _InputCopy(
         kicker: 'Input',
         title: 'Type values from your t-test.',
-        body: 'Fill the numbers, then check them.',
+        body: 'Type values from one output row.',
         pasteTitle: 'Paste output',
         pasteBody: null,
       ),

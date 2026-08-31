@@ -85,3 +85,88 @@ Verification:
 - Sentence read verbatim from the capture set: "Change colors here. Your values stay the same."
 - The guide boxes stayed outside the highlighted guide target area in the inspected captures.
 - Deviations from v6: none.
+
+## T31 Milestone 9: Student Blockers And Deployment Prep
+
+Source lists read and merged:
+- ROOT list in this report: start path, SPSS row choice, p direction and .000, validation failure priority, copyable claims.
+- ANIM_CODEX list in `D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\ONBOARDING\ONBOARDING_DESIGN_2026-08-31_v6_EN.md`: SPSS row labels, p = .000, alpha, decimal df, causal claims.
+- User-observed blockers added this run: repeated SPSS radio subtitles and missing confidence-level guidance.
+
+Merged blocker status:
+- Start path: already fixed in T30, strengthened on the input page this run.
+- SPSS row choice: fixed this run with Levene-aware radio subtitles; the app still never auto-selects between both SPSS rows.
+- p direction and SPSS .000: fixed in T30, strengthened this run with p-direction radio subtitles.
+- Alpha: fixed in T30, strengthened this run by showing the normal .05 default while keeping it tied to the course.
+- Decimal Welch df: already fixed in T30 and unchanged.
+- Validation failure priority: already fixed in T30, wording tightened this run.
+- Copyable APA wording versus unsupported causal claims: already fixed in T30 and unchanged.
+- Missing confidence level: fixed this run with location and value guidance.
+
+Before/after wording changed this run:
+
+| Area | Before | After |
+| --- | --- | --- |
+| Paste page body | "Paste, load an example, then review." | "Paste SPSS, JASP, jamovi, or APA output." |
+| Example page body | "Review it, or choose another example." | "Review the detected values before reporting." |
+| Manual page body | "Fill the numbers, then check them." | "Type values from one output row." |
+| SPSS assumed subtitle, Levene parsed | "Equal variances assumed" | "Student row. Levene's Sig. = 0.525; with .05 rule, SPSS points to this row." |
+| SPSS not-assumed subtitle, Levene parsed | "Equal variances not assumed" | "Welch row. Levene's Sig. = 0.525; with .05 rule, use this only if assigned." |
+| SPSS assumed subtitle, Levene not parsed | "Equal variances assumed" | "Student row. Use when Levene's Sig. is .05 or larger." |
+| SPSS not-assumed subtitle, Levene not parsed | "Equal variances not assumed" | "Welch row. Use when Levene's Sig. is below .05." |
+| Two-tailed p option | No subtitle. | "Use SPSS Sig. (2-tailed)." |
+| Lower-tail p option | No subtitle. | "Use only if the assignment predicts lower values." |
+| Upper-tail p option | No subtitle. | "Use only if the assignment predicts higher values." |
+| Missing confidence field label | "reported confidence level" | "CI confidence level" |
+| Missing confidence title | "reported confidence level missing" | "Enter the CI level, usually .95." |
+| Missing confidence body | "Fix this before continuing." | "Look for 95% before Confidence Interval; type .95." |
+| Missing t title | "reported t missing" | "Find t in the selected test row." |
+| Missing t body | "Fix this before continuing." | "Copy the number from the t column." |
+| Missing df title | "reported df missing" | "Find df in the selected test row." |
+| Missing df body | "Fix this before continuing." | "Copy the df value; decimals are ok for Welch." |
+| Missing p title | "reported p missing" | "Find p or Sig. in the selected test row." |
+| Missing p body | "Fix this before continuing." | "Use Sig. (2-tailed), or type < .001 for SPSS .000." |
+| Missing Group Statistics title | "`<field> missing`" | "Find this value in Group Statistics." |
+| Missing Group 1 n body | "Fix this before continuing." | "Copy Group 1 N." |
+| Missing Group 1 mean body | "Fix this before continuing." | "Copy Group 1 Mean." |
+| Missing Group 1 SD body | "Fix this before continuing." | "Copy Group 1 Std. Deviation." |
+| Missing Group 2 n body | "Fix this before continuing." | "Copy Group 2 N." |
+| Missing Group 2 mean body | "Fix this before continuing." | "Copy Group 2 Mean." |
+| Missing Group 2 SD body | "Fix this before continuing." | "Copy Group 2 Std. Deviation." |
+| Missing reference title | "reference mean missing" | "Enter the test value for one sample." |
+| Missing reference body | "Fix this before continuing." | "Use the comparison value named in your output or assignment." |
+| Missing paired title | "`<field> missing`" | "Find this value in Paired Differences." |
+| Missing paired mean body | "Fix this before continuing." | "Copy the Mean from the Paired Differences row." |
+| Missing paired SD body | "Fix this before continuing." | "Copy the Std. Deviation from Paired Differences." |
+| Missing fallback title | "`<field> missing`" | "`<field> was not found.`" |
+| Missing fallback body | "Fix this before continuing." | "Choose or type the missing value before continuing." |
+| Manual alpha label | "Alpha (course level)" | "Alpha (course, usually .05)" |
+| Manual p-tail label | "Tail" | "p direction" |
+| Manual confidence label | "Confidence level" | "CI level (usually .95)" |
+| Validation page body | "Fix fails before generating the report." | "Fix failed rows before generating the report." |
+| Validation blocking notice | "Fix failed values before generating a report." | "Fix failed rows before generating a report." |
+| Failure summary body | "Fix before report." | "Fix failed rows first." |
+
+Deployment prep:
+- `.github/workflows/deploy-web.yml` builds web with `--base-href /RES-QUILL/`.
+- The workflow creates `build/web/.nojekyll` before uploading the Pages artifact.
+- Added `RELEASE_CHECKLIST.md` with GitHub Pages and Google Play release steps.
+- Required Shir-owned Pages setting: `Settings -> Pages -> Source = GitHub Actions`.
+- Published URL after Shir pushes and the workflow succeeds: `https://shir-openu.github.io/RES-QUILL/`.
+- No push was made.
+
+Cold build verification after `flutter clean` and `flutter pub get`:
+- Web release: passed. Artifact path: `build\web\index.html`; built base href is `<base href="/RES-QUILL/">`; `.nojekyll` exists at `build\web\.nojekyll`.
+- Windows debug: passed. Artifact path: `build\windows\x64\runner\Debug\res_quill.exe`.
+- Android debug: passed. Artifact path: `build\app\outputs\flutter-apk\app-debug.apk`.
+- Android note for Shir: the debug APK does not need release signing. Google Play needs a release keystore, Play Console setup, and accepted SDK licences on the build machine if prompted.
+
+Verification:
+- `dart format lib test tool`: passed.
+- `flutter analyze`: passed.
+- `flutter test`: 101 passed, 0 failed.
+- `flutter test --update-goldens tool\verify\capture_app_screens_test.dart`: passed.
+- Captures regenerated: 40 total; 16 tracked image files changed because the visible input and validation wording changed.
+- Inspected `captures\desktop_dark_03_input_spss_independent.png`, `captures\desktop_dark_guide_03_input_spss_independent.png`, and `captures\desktop_dark_04_validation_failing.png`.
+- Sentence read from the input capture: "Student row. Levene's Sig. = 0.525; with .05 rule, SPSS points to this row."
+- Sentence read from the validation capture: "Fix failed rows before generating the report."

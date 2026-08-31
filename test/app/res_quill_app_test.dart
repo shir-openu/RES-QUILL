@@ -69,6 +69,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Check the numbers.'), findsOneWidget);
+    expect(
+      find.text('Fix failed rows before generating the report.'),
+      findsOneWidget,
+    );
     expect(find.text('Fail'), findsWidgets);
     final generateButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Generate report'),
@@ -84,6 +88,15 @@ void main() {
     await _pasteAndReview(tester, ambiguousApaPaste);
 
     expect(find.text('Choose p-value direction'), findsOneWidget);
+    expect(find.text('Use SPSS Sig. (2-tailed).'), findsOneWidget);
+    expect(
+      find.text('Use only if the assignment predicts lower values.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Use only if the assignment predicts higher values.'),
+      findsOneWidget,
+    );
     var confirmButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Use these values'),
     );
@@ -122,6 +135,24 @@ void main() {
 
     expect(
       find.text('SPSS has both rows. Choose the row your assignment uses.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        "Student row. Levene's Sig. = 0.525; with .05 rule, SPSS points to this row.",
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        "Welch row. Levene's Sig. = 0.525; with .05 rule, use this only if assigned.",
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('CI confidence level'), findsOneWidget);
+    expect(find.text('Enter the CI level, usually .95.'), findsOneWidget);
+    expect(
+      find.text('Look for 95% before Confidence Interval; type .95.'),
       findsOneWidget,
     );
     final details = find.widgetWithText(FilledButton, 'Show all found values');
@@ -230,6 +261,32 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('input labels tell students what to paste and type', (
+    tester,
+  ) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Paste SPSS, JASP, jamovi, or APA output.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Back to start'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Equal variances assumed').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Type values from one output row.'), findsOneWidget);
+    expect(find.text('Alpha (course, usually .05)'), findsOneWidget);
+    expect(find.text('p direction'), findsOneWidget);
+    expect(find.text('CI level (usually .95)'), findsOneWidget);
   });
 
   testWidgets('the start guide does not auto-advance', (tester) async {

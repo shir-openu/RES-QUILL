@@ -39,10 +39,10 @@ jobs:
         run: flutter analyze
 
       - name: Build web for GitHub Pages project URL
-        # Project Pages are served below /res-quill/. If this base href is wrong,
+        # Project Pages are served below /RES-QUILL/. If this base href is wrong,
         # Flutter's bootstrap and asset URLs resolve from the wrong path and the page can load blank.
         # web/flutter_bootstrap.js intentionally omits serviceWorkerSettings so Pages visits do not use a stale offline cache.
-        run: flutter build web --release --base-href /res-quill/
+        run: flutter build web --release --base-href /RES-QUILL/
 
       - name: Remove generated service worker
         run: rm -f build/web/flutter_service_worker.js
