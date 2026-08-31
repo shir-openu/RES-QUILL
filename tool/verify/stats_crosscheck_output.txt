@@ -1,0 +1,40 @@
+Res-Quill statistics engine SciPy cross-check
+scipy_version: 1.17.1
+numpy_version: 2.3.5
+dart_executable: C:\flutter\bin\cache\dart-sdk\bin\dart.exe
+cases_total: 600
+cases_by_kind_mode:
+  one_sample/raw: 75
+  one_sample/summary: 75
+  paired/raw: 75
+  paired/summary: 75
+  student/raw: 75
+  student/summary: 75
+  welch/raw: 75
+  welch/summary: 75
+errors: 0
+max_absolute_differences:
+  t: 4.5474735088646412e-13 at one_raw_029
+  df: 8.5265128291212022e-14 at welch_raw_063
+  pTwoTailed: 3.1752378504279477e-14 at paired_summary_050
+  pOneTailed: 1.5876189252139739e-14 at paired_summary_050
+  pLess: 1.5876189252139739e-14 at paired_summary_050
+  pGreater: 1.5765166949677223e-14 at paired_summary_050
+  ciLower: 2.3838708784751361e-12 at student_raw_058
+  ciUpper: 2.3732127374387346e-12 at student_summary_058
+  meanDifference: 2.4868995751603507e-14 at student_raw_018
+  standardError: 1.7763568394002505e-15 at student_raw_071
+  cohensD: 5.6843418860808015e-14 at one_raw_029
+max_relative_differences:
+  t: 9.1424672383775704e-15 at welch_raw_018
+  df: 4.8152641653821468e-16 at welch_raw_007
+  pTwoTailed: 3.3261379919518987e-13 at student_raw_043
+  pOneTailed: 3.3261379919518987e-13 at student_raw_043
+  pLess: 3.3261379919518987e-13 at student_raw_043
+  pGreater: 1.9761923745585838e-13 at paired_summary_007
+  ciLower: 2.172429714800452e-12 at student_summary_071
+  ciUpper: 2.9503710415868578e-13 at student_raw_018
+  meanDifference: 9.0631931062021214e-15 at student_raw_018
+  standardError: 6.4395389332854409e-16 at student_raw_007
+  cohensD: 9.1020372073477467e-15 at student_raw_018
+max_p_deviation: 3.1752378504279477e-14
