@@ -514,6 +514,10 @@ class _GuideOverlay extends StatefulWidget {
 }
 
 class _GuideOverlayState extends State<_GuideOverlay> {
+  final FocusScopeNode _focusScopeNode = FocusScopeNode(
+    debugLabel: 'Guide overlay focus scope',
+  );
+
   Rect? _targetRect;
   _GuideSession? _lastMeasuredSession;
 
@@ -529,12 +533,20 @@ class _GuideOverlayState extends State<_GuideOverlay> {
     if (widget.session == null) {
       _targetRect = null;
       _lastMeasuredSession = null;
+      _focusScopeNode.unfocus();
       return;
     }
     if (!_sameSession(widget.session, oldWidget.session)) {
       _targetRect = null;
       _scheduleMeasurement();
+      _requestGuideFocus();
     }
+  }
+
+  @override
+  void dispose() {
+    _focusScopeNode.dispose();
+    super.dispose();
   }
 
   @override
@@ -547,6 +559,14 @@ class _GuideOverlayState extends State<_GuideOverlay> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _measureTarget(scrollFirst: true);
+      }
+    });
+  }
+
+  void _requestGuideFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.session != null) {
+        _focusScopeNode.requestFocus();
       }
     });
   }
@@ -681,42 +701,46 @@ class _GuideOverlayState extends State<_GuideOverlay> {
     final rect = _targetRect;
     final colors = _RqColors.of(context);
     return Positioned.fill(
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          children: [
-            _GuideScrim(targetRect: rect, onTap: widget.onClose),
-            if (rect != null) ...[
-              Positioned.fromRect(
-                rect: rect,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: colors.cyan, width: 3),
-                      borderRadius: BorderRadius.circular(14),
-                      color: colors.cyan.withValues(alpha: 0.08),
+      child: FocusScope(
+        node: _focusScopeNode,
+        autofocus: true,
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              _GuideScrim(targetRect: rect, onTap: widget.onClose),
+              if (rect != null) ...[
+                Positioned.fromRect(
+                  rect: rect,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.cyan, width: 3),
+                        borderRadius: BorderRadius.circular(14),
+                        color: colors.cyan.withValues(alpha: 0.08),
+                      ),
                     ),
                   ),
                 ),
+              ],
+              CustomSingleChildLayout(
+                delegate: _GuideBubblePositionDelegate(
+                  targetRect: rect,
+                  side: step.side,
+                  preferAbove: session.screen != _Screen.start,
+                ),
+                child: _GuideBubble(
+                  step: step,
+                  index: session.index,
+                  total: _guideStepsFor(session.screen).length,
+                  singleItemMode: session.singleTargetId != null,
+                  onBack: widget.onBack,
+                  onNext: widget.onNext,
+                  onClose: widget.onClose,
+                ),
               ),
             ],
-            CustomSingleChildLayout(
-              delegate: _GuideBubblePositionDelegate(
-                targetRect: rect,
-                side: step.side,
-                preferAbove: session.screen != _Screen.start,
-              ),
-              child: _GuideBubble(
-                step: step,
-                index: session.index,
-                total: _guideStepsFor(session.screen).length,
-                singleItemMode: session.singleTargetId != null,
-                onBack: widget.onBack,
-                onNext: widget.onNext,
-                onClose: widget.onClose,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

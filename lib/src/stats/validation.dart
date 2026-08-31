@@ -35,21 +35,31 @@ class ReportedValue {
 
   double get tolerance => 0.5 * math.pow(10, -decimalPlaces).toDouble() + 1e-12;
 
-  String get toleranceDescription {
+  double effectiveTolerance({double minimumTolerance = 0}) {
+    return math.max(tolerance, minimumTolerance);
+  }
+
+  String toleranceDescription({double minimumTolerance = 0}) {
     if (relation == ReportedRelation.equalRounded) {
+      final effective = effectiveTolerance(minimumTolerance: minimumTolerance);
+      if (effective > tolerance) {
+        return 'reported inputs were rounded, so tolerance is +/- '
+            '${_formatFixed(effective, decimalPlaces + 1)}';
+      }
       return 'value was rounded to ${_decimalPlacesText(decimalPlaces)}, '
-          'so tolerance is +/- ${_formatFixed(tolerance, decimalPlaces + 1)}';
+          'so tolerance is +/- ${_formatFixed(effective, decimalPlaces + 1)}';
     }
     final formattedValue = _formatFixed(value, decimalPlaces);
     return 'reported as ${_relationSymbol(relation)} $formattedValue; '
         'calculated value must be ${_relationSymbol(relation)} $formattedValue';
   }
 
-  bool accepts(double recomputed) {
+  bool accepts(double recomputed, {double minimumTolerance = 0}) {
     requireFinite(recomputed, 'recomputed value');
     switch (relation) {
       case ReportedRelation.equalRounded:
-        return (recomputed - value).abs() <= tolerance;
+        return (recomputed - value).abs() <=
+            effectiveTolerance(minimumTolerance: minimumTolerance);
       case ReportedRelation.lessThan:
         return recomputed < value;
       case ReportedRelation.lessThanOrEqual:
@@ -384,6 +394,7 @@ class TTestValidator {
         title: 'Reported t matches the descriptive statistics',
         recomputed: recomputed,
         reported: input.reportedT!,
+        minimumTolerance: 0.005,
         passExplanation:
             'The reported t matches the means, SDs, ns, and stated test.',
         failExplanation:
@@ -485,6 +496,7 @@ class TTestValidator {
           title: 'Lower CI bound matches the reported difference and SE',
           recomputed: recomputedLower,
           reported: input.reportedCiLower!,
+          minimumTolerance: 0.001,
           passExplanation:
               'The lower CI bound matches the reported mean difference, SE, df, and confidence level.',
           failExplanation:
@@ -495,6 +507,7 @@ class TTestValidator {
           title: 'Upper CI bound matches the reported difference and SE',
           recomputed: recomputedUpper,
           reported: input.reportedCiUpper!,
+          minimumTolerance: 0.001,
           passExplanation:
               'The upper CI bound matches the reported mean difference, SE, df, and confidence level.',
           failExplanation:
@@ -542,17 +555,23 @@ class TTestValidator {
     required String title,
     required double recomputed,
     required ReportedValue reported,
+    double minimumTolerance = 0,
     required String passExplanation,
     required String failExplanation,
   }) {
-    final pass = reported.accepts(recomputed);
+    final pass = reported.accepts(
+      recomputed,
+      minimumTolerance: minimumTolerance,
+    );
     return ValidationCheck(
       id: id,
       title: title,
       status: pass ? ValidationStatus.pass : ValidationStatus.fail,
       recomputed: recomputed,
       reported: reported.value,
-      tolerance: reported.toleranceDescription,
+      tolerance: reported.toleranceDescription(
+        minimumTolerance: minimumTolerance,
+      ),
       explanation: pass ? passExplanation : failExplanation,
     );
   }

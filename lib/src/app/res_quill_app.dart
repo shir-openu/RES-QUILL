@@ -2525,6 +2525,10 @@ class _ValidationScreen extends StatelessWidget {
                           key: const Key('generate-report'),
                           label: 'Generate report',
                           tone: _ButtonTone.primary,
+                          disabledHint: _generateReportDisabledHint(
+                            result,
+                            failedChecks,
+                          ),
                           onPressed: !_hasFailures && result != null
                               ? onGenerate
                               : null,
@@ -2601,6 +2605,21 @@ class _ValidationScreen extends StatelessWidget {
     }
     return parts.join(' ');
   }
+
+  static String? _generateReportDisabledHint(
+    TTestResult? result,
+    List<ValidationCheck> failedChecks,
+  ) {
+    if (failedChecks.isNotEmpty) {
+      return 'Disabled because validation failed: '
+          '${failedChecks.first.title}. Fix failed rows before generating a '
+          'report.';
+    }
+    if (result == null) {
+      return 'Disabled because the values could not be recalculated.';
+    }
+    return null;
+  }
 }
 
 class _ValueSummary extends StatelessWidget {
@@ -2622,9 +2641,10 @@ class _ValueSummary extends StatelessWidget {
     final reportedT = input?.reportedT;
     final reportedDf = input?.reportedDegreesOfFreedom;
     final reportedP = input?.reportedP;
-    final tFailure = _firstFailureFor({'t.descriptives', 'p.t_df'});
-    final dfFailure = _firstFailureFor({
-      'df.plausibility',
+    final tFailure = _firstFailureFor({'t.descriptives'});
+    final tRelatedFailure = _firstFailureFor({'p.t_df'});
+    final dfFailure = _firstFailureFor({'df.plausibility'});
+    final dfRelatedFailure = _firstFailureFor({
       'p.t_df',
       'ci.diff_se',
       'ci.lower',
@@ -2639,6 +2659,8 @@ class _ValueSummary extends StatelessWidget {
           cardKey: const Key('validation-summary-t'),
           tone: tFailure != null
               ? _StatusTone.error
+              : tRelatedFailure != null
+              ? _StatusTone.warning
               : reportedT == null || result == null
               ? _StatusTone.warning
               : _StatusTone.accepted,
@@ -2648,6 +2670,8 @@ class _ValueSummary extends StatelessWidget {
               : 't = ${_fmt(reportedT.value)}',
           body: tFailure != null
               ? 'Problem row: ${tFailure.title}.'
+              : tRelatedFailure != null
+              ? 'Used in failing row: ${tRelatedFailure.title}.'
               : reportedT == null
               ? 'No reported t to check.'
               : result == null
@@ -2658,6 +2682,8 @@ class _ValueSummary extends StatelessWidget {
           cardKey: const Key('validation-summary-df'),
           tone: dfFailure != null
               ? _StatusTone.error
+              : dfRelatedFailure != null
+              ? _StatusTone.warning
               : reportedDf == null || result == null
               ? _StatusTone.warning
               : _StatusTone.accepted,
@@ -2667,6 +2693,8 @@ class _ValueSummary extends StatelessWidget {
               : 'df = ${_fmt(reportedDf.value)}',
           body: dfFailure != null
               ? 'Problem row: ${dfFailure.title}.'
+              : dfRelatedFailure != null
+              ? 'Used in failing row: ${dfRelatedFailure.title}.'
               : reportedDf == null
               ? 'No reported df to check.'
               : result?.kind == TTestKind.independentWelch
@@ -3942,23 +3970,21 @@ class _FocusableTapState extends State<_FocusableTap> {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Focus(
-      canRequestFocus: widget.onTap != null,
-      onFocusChange: (focused) => setState(() => _focused = focused),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: widget.borderRadius,
+        border: _focused ? Border.all(color: colors.cyan, width: 2) : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          canRequestFocus: widget.onTap != null,
+          onFocusChange: (focused) => setState(() => _focused = focused),
           borderRadius: widget.borderRadius,
-          border: _focused ? Border.all(color: colors.cyan, width: 2) : null,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: widget.borderRadius,
-            focusColor: colors.cyan.withValues(alpha: 0.16),
-            hoverColor: colors.cyan.withValues(alpha: 0.08),
-            onTap: widget.onTap,
-            child: widget.child,
-          ),
+          focusColor: colors.cyan.withValues(alpha: 0.16),
+          hoverColor: colors.cyan.withValues(alpha: 0.08),
+          onTap: widget.onTap,
+          child: widget.child,
         ),
       ),
     );
@@ -4063,11 +4089,13 @@ class _ActionButton extends StatelessWidget {
     required this.label,
     required this.tone,
     required this.onPressed,
+    this.disabledHint,
   });
 
   final String label;
   final _ButtonTone tone;
   final VoidCallback? onPressed;
+  final String? disabledHint;
 
   @override
   Widget build(BuildContext context) {
@@ -4115,13 +4143,16 @@ class _ActionButton extends StatelessWidget {
       ),
     );
 
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      child: FilledButton(
-        onPressed: onPressed,
-        style: style,
-        child: Text(label, textAlign: TextAlign.center),
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        hint: enabled ? null : disabledHint,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: style,
+          child: Text(label, textAlign: TextAlign.center),
+        ),
       ),
     );
   }
@@ -4689,7 +4720,7 @@ class _RqColors extends ThemeExtension<_RqColors> {
       fieldBackground: Colors.white.withValues(alpha: 0.92),
       fieldText: const Color(0xFF0F172A),
       shadow: const Color(0xFF0F172A).withValues(alpha: 0.13),
-      cyan: const Color(0xFF087F8C),
+      cyan: const Color(0xFF077A86),
       violet: const Color(0xFF4338CA),
       green: const Color(0xFF047857),
       error: const Color(0xFFB42318),

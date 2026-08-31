@@ -32,6 +32,10 @@ void main() {
 
   testWidgets('disabled analysis cards are not tappable', (tester) async {
     final semantics = tester.ensureSemantics();
+    SharedPreferences.setMockInitialValues({
+      _themePreferenceKeyForTest: 'light',
+      _seenGuideScreensPreferenceKeyForTest: _allSeenGuideScreensForTest,
+    });
     await _setDesktop(tester);
     await tester.pumpWidget(const MainApp());
 
@@ -58,6 +62,7 @@ void main() {
   });
 
   testWidgets('a validation fail blocks the report screen', (tester) async {
+    final semantics = tester.ensureSemantics();
     await _setDesktop(tester);
     await tester.pumpWidget(const MainApp());
     await _pasteAndReview(tester, failingApaPaste);
@@ -78,8 +83,20 @@ void main() {
       find.widgetWithText(FilledButton, 'Generate report'),
     );
     expect(generateButton.onPressed, isNull);
+    expect(
+      tester.getSemantics(find.widgetWithText(FilledButton, 'Generate report')),
+      matchesSemantics(
+        label: 'Generate report',
+        hint:
+            'Disabled because validation failed: Reported t matches the descriptive statistics. Fix failed rows before generating a report.',
+        isButton: true,
+        hasEnabledState: true,
+        isEnabled: false,
+      ),
+    );
 
     expect(find.text('Copy your report.'), findsNothing);
+    semantics.dispose();
   });
 
   testWidgets('validation rows do not expose raw check ids', (tester) async {
@@ -117,7 +134,7 @@ void main() {
     expect(find.text('Reported p matches t and df'), findsWidgets);
   });
 
-  testWidgets('a value with a failing check does not render a pass badge', (
+  testWidgets('value cards distinguish failed and related checks', (
     tester,
   ) async {
     await _setDesktop(tester);
@@ -140,6 +157,25 @@ void main() {
       find.descendant(
         of: pTile,
         matching: find.text('Problem row: Reported p matches t and df.'),
+      ),
+      findsOneWidget,
+    );
+
+    final dfTile = find.byKey(const Key('validation-summary-df'));
+    expect(
+      find.descendant(of: dfTile, matching: find.text('Warning')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dfTile, matching: find.text('Error')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: dfTile,
+        matching: find.text(
+          'Used in failing row: Reported p matches t and df.',
+        ),
       ),
       findsOneWidget,
     );
@@ -375,7 +411,9 @@ void main() {
     );
   });
 
-  testWidgets('Escape closes the guide', (tester) async {
+  testWidgets('guide traps keyboard focus and Escape closes it', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     await _setDesktop(tester);
     await tester.pumpWidget(const MainApp());
@@ -383,6 +421,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const Key('guide-bubble')), findsOneWidget);
+    expect(_focusedInsideGuide(), isTrue);
+
+    for (var i = 0; i < 5; i += 1) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_focusedInsideGuide(), isTrue);
+    }
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -470,4 +515,10 @@ bool _guideButtonIsPulsing(WidgetTester tester, String targetId) {
     find.byKey(Key('guide-button-$targetId')),
   );
   return widget.isPulsing as bool;
+}
+
+bool _focusedInsideGuide() {
+  final primaryFocus = FocusManager.instance.primaryFocus;
+  return primaryFocus?.debugLabel == 'Guide overlay focus scope' ||
+      primaryFocus?.nearestScope?.debugLabel == 'Guide overlay focus scope';
 }
