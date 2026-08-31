@@ -216,6 +216,46 @@ class TTestValidationInput {
 class TTestValidator {
   TTestValidator._();
 
+  static TTestResult resultFromInput(TTestValidationInput input) {
+    switch (input.kind) {
+      case TTestKind.independentStudent:
+        if (input.first == null || input.second == null) {
+          throw StatsException('Two independent groups are required.');
+        }
+        return TTests.independentStudentFromSummary(
+          first: input.first!.toSummaryStats(),
+          second: input.second!.toSummaryStats(),
+          confidenceLevel: input.confidenceLevel,
+        );
+      case TTestKind.independentWelch:
+        if (input.first == null || input.second == null) {
+          throw StatsException('Two independent groups are required.');
+        }
+        return TTests.independentWelchFromSummary(
+          first: input.first!.toSummaryStats(),
+          second: input.second!.toSummaryStats(),
+          confidenceLevel: input.confidenceLevel,
+        );
+      case TTestKind.pairedSamples:
+        if (input.paired == null) {
+          throw StatsException('Paired descriptives are required.');
+        }
+        return TTests.pairedFromSummary(
+          summary: input.paired!.toPairedSummaryStats(),
+          confidenceLevel: input.confidenceLevel,
+        );
+      case TTestKind.oneSample:
+        if (input.first == null || input.referenceMean == null) {
+          throw StatsException('A sample and reference mean are required.');
+        }
+        return TTests.oneSampleFromSummary(
+          sample: input.first!.toSummaryStats(),
+          referenceMean: input.referenceMean!,
+          confidenceLevel: input.confidenceLevel,
+        );
+    }
+  }
+
   static List<ValidationCheck> validate(TTestValidationInput input) {
     final checks = <ValidationCheck>[
       ..._domainChecks(input),
@@ -296,7 +336,7 @@ class TTestValidator {
     }
 
     try {
-      final recomputed = _resultFromInput(input).degreesOfFreedom;
+      final recomputed = resultFromInput(input).degreesOfFreedom;
       return _compare(
         id: 'df.plausibility',
         recomputed: recomputed,
@@ -326,7 +366,7 @@ class TTestValidator {
     }
 
     try {
-      final recomputed = _resultFromInput(input).t;
+      final recomputed = resultFromInput(input).t;
       return _compare(
         id: 't.descriptives',
         recomputed: recomputed,
@@ -472,46 +512,6 @@ class TTestValidator {
           ? '${config.label} is attainable as a rounded mean of integer-valued data.'
           : '${config.label} is not attainable as a rounded mean of integer-valued data at this n.',
     );
-  }
-
-  static TTestResult _resultFromInput(TTestValidationInput input) {
-    switch (input.kind) {
-      case TTestKind.independentStudent:
-        if (input.first == null || input.second == null) {
-          throw StatsException('Two independent groups are required.');
-        }
-        return TTests.independentStudentFromSummary(
-          first: input.first!.toSummaryStats(),
-          second: input.second!.toSummaryStats(),
-          confidenceLevel: input.confidenceLevel,
-        );
-      case TTestKind.independentWelch:
-        if (input.first == null || input.second == null) {
-          throw StatsException('Two independent groups are required.');
-        }
-        return TTests.independentWelchFromSummary(
-          first: input.first!.toSummaryStats(),
-          second: input.second!.toSummaryStats(),
-          confidenceLevel: input.confidenceLevel,
-        );
-      case TTestKind.pairedSamples:
-        if (input.paired == null) {
-          throw StatsException('Paired descriptives are required.');
-        }
-        return TTests.pairedFromSummary(
-          summary: input.paired!.toPairedSummaryStats(),
-          confidenceLevel: input.confidenceLevel,
-        );
-      case TTestKind.oneSample:
-        if (input.first == null || input.referenceMean == null) {
-          throw StatsException('A sample and reference mean are required.');
-        }
-        return TTests.oneSampleFromSummary(
-          sample: input.first!.toSummaryStats(),
-          referenceMean: input.referenceMean!,
-          confidenceLevel: input.confidenceLevel,
-        );
-    }
   }
 
   static ValidationCheck _compare({
