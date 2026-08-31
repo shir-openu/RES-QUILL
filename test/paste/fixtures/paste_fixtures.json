@@ -1,0 +1,512 @@
+{
+  "fixtures": [
+    {
+      "id": "SPSS_IND01_WELCH_P000_SELECTED",
+      "title": "SPSS independent samples, selected Welch row, SPSS .000 p",
+      "format": "spss_independent",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the classic SPSS Independent Samples Test layout: Group Statistics plus Levene's Test and Equal variances assumed/not assumed rows. Numeric values are the Res-Quill Welch mock from the 2026-08-30 task prompt.",
+      "input": "Selected row: Equal variances not assumed.\n\nGroup Statistics\nCondition    N    Mean    Std. Deviation    Std. Error Mean\nRetrieval practice    20    81.40    5.5378    1.2382\nRestudy               31    72.40    9.2616    1.6634\n\nIndependent Samples Test\nLevene's Test for Equality of Variances\nF    Sig.    t    df    Sig. (2-tailed)    Mean Difference    Std. Error Difference    95% Confidence Interval of the Difference Lower Upper\nScore Equal variances assumed        4.120    .048    4.056    49    .000    9.000    2.219    4.541    13.459\nScore Equal variances not assumed                     4.340    48.80    .000    9.000    2.074    4.83    13.17",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentStudent", "independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 20,
+          "primary.mean": 81.40,
+          "primary.standardDeviation": 5.5378,
+          "secondary.n": 31,
+          "secondary.mean": 72.40,
+          "secondary.standardDeviation": 9.2616,
+          "reported.t": 4.340,
+          "reported.df": 48.80,
+          "reported.p": 0.001,
+          "reported.meanDifference": 9.000,
+          "reported.standardError": 2.074,
+          "reported.ciLower": 4.83,
+          "reported.ciUpper": 13.17,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        },
+        "spssRoundedZeroFields": ["reported.p"]
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "SPSS_IND02_STUDENT_EUROPEAN_SELECTED",
+      "title": "SPSS independent samples, European decimals and NBSP",
+      "format": "spss_independent",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the classic SPSS Independent Samples Test table; decimal commas and non-breaking spaces were inserted manually. Numeric values are from the JMP body-fat worked example already used by Res-Quill T19.",
+      "input": "Selected row: Equal variances assumed.\n\nGroup Statistics\nGroup    N    Mean    Std. Deviation    Std. Error Mean\nWomen\u00a010\u00a022,29\u00a05,32\u00a01,68\nMen\u00a013\u00a014,95\u00a06,84\u00a01,90\n\nIndependent Samples Test\nLevene's Test for Equality of Variances\nF    Sig.    t    df    Sig. (2-tailed)    Mean Difference    Std. Error Difference    95% Confidence Interval of the Difference Lower Upper\nScore Equal variances assumed        1,473    ,238    2,80    21    ,011    7,34    2,622    1,89    12,79\nScore Equal variances not assumed                     2,895    20,988    ,009    7,34    2,535    2,06    12,62",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentStudent",
+        "candidateKinds": ["independentStudent", "independentWelch"],
+        "selectedKind": "independentStudent",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 22.29,
+          "primary.standardDeviation": 5.32,
+          "secondary.n": 13,
+          "secondary.mean": 14.95,
+          "secondary.standardDeviation": 6.84,
+          "reported.t": 2.80,
+          "reported.df": 21,
+          "reported.p": 0.011,
+          "reported.meanDifference": 7.34,
+          "reported.standardError": 2.622,
+          "reported.ciLower": 1.89,
+          "reported.ciUpper": 12.79,
+          "reported.confidenceLevel": 0.95,
+          "levene.p": 0.238
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentStudent",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .011"
+        }
+      ]
+    },
+    {
+      "id": "SPSS_IND03_BOTH_ROWS_AMBIGUOUS",
+      "title": "SPSS independent samples with both variance rows and no selection",
+      "format": "spss_independent",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the classic SPSS Independent Samples Test layout. Numeric values are from the JMP body-fat worked example already used by Res-Quill T19.",
+      "input": "Group Statistics\nGroup    N    Mean    Std. Deviation    Std. Error Mean\nWomen    10    22.29    5.32    1.68\nMen      13    14.95    6.84    1.90\n\nIndependent Samples Test\nLevene's Test for Equality of Variances\nF    Sig.    t    df    Sig. (2-tailed)    Mean Difference    Std. Error Difference    95% Confidence Interval of the Difference Lower Upper\nScore Equal variances assumed        1.473    .238    2.80    21    .011    7.34    2.622    1.89    12.79\nScore Equal variances not assumed                     2.895    20.988    .009    7.34    2.535    2.07    12.61",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": null,
+        "candidateKinds": ["independentStudent", "independentWelch"],
+        "selectedKind": null,
+        "ambiguityIds": ["independent.variance_row"],
+        "fieldValues": {
+          "primary.n": 10,
+          "secondary.n": 13,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentStudent",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .011"
+        },
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .009"
+        }
+      ]
+    },
+    {
+      "id": "SPSS_PAIR01_NIST",
+      "title": "SPSS paired samples, NIST paired numbers",
+      "format": "spss_paired",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the SPSS Paired Samples Statistics and Paired Samples Test table layout. Numeric values are from the NIST Dataplot Bowker and Lieberman paired example already used by Res-Quill T19.",
+      "input": "Paired Samples Statistics\nMean    N    Std. Deviation    Std. Error Mean\nPair 1 Before    56.60    15    12.3592    3.1909\nAfter            48.60    15    11.6288    3.0027\n\nPaired Samples Test\nPaired Differences\nMean    Std. Deviation    Std. Error Mean    95% Confidence Interval of the Difference Lower Upper    t    df    Sig. (2-tailed)\nPair 1 Before - After    8.000    11.0268    2.8469    1.89    14.11    2.810    14    .014",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 15,
+          "primary.mean": 56.60,
+          "primary.standardDeviation": 12.3592,
+          "secondary.n": 15,
+          "secondary.mean": 48.60,
+          "secondary.standardDeviation": 11.6288,
+          "paired.meanDifference": 8.000,
+          "paired.differenceStandardDeviation": 11.0268,
+          "reported.t": 2.810,
+          "reported.df": 14,
+          "reported.p": 0.014,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "pairedSamples",
+          "confirmedTail": "twoTailed",
+          "formalContains": "paired-samples"
+        }
+      ]
+    },
+    {
+      "id": "SPSS_PAIR02_EUROPEAN_MINUS_P000",
+      "title": "SPSS paired samples, European decimals, unicode minus, SPSS .000",
+      "format": "spss_paired",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the SPSS paired-samples table layout. Numeric values are from the Datanovia mice2 raw example already used by Res-Quill T19.",
+      "input": "Paired Samples Statistics\nMean    N    Std. Deviation    Std. Error Mean\nPair 1 Before    200,56    10    20,0282    6,3330\nAfter            400,04    10    30,0869    9,5141\n\nPaired Samples Test\nPaired Differences\nMean    Std. Deviation    Std. Error Mean    95% Confidence Interval of the Difference Lower Upper    t    df    Sig. (2-tailed)\nPair 1 Before \u2013 After    \u2212199,480    24,6929    7,8086    \u2212217,144    \u2212181,816    \u221225,546    9    ,000",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 200.56,
+          "primary.standardDeviation": 20.0282,
+          "secondary.n": 10,
+          "secondary.mean": 400.04,
+          "secondary.standardDeviation": 30.0869,
+          "paired.meanDifference": -199.480,
+          "paired.differenceStandardDeviation": 24.6929,
+          "reported.t": -25.546,
+          "reported.df": 9,
+          "reported.p": 0.001,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        },
+        "spssRoundedZeroFields": ["reported.p"]
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "pairedSamples",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "SPSS_ONE01_WAFER",
+      "title": "SPSS one sample, NIST wafer numbers",
+      "format": "spss_one_sample",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the SPSS One-Sample Statistics and One-Sample Test table layout. Numeric values are from the NIST wafer one-sample example already used by Res-Quill T19.",
+      "input": "One-Sample Statistics\nN    Mean    Std. Deviation    Std. Error Mean\nWafer counts    10    53.70    6.5668    2.0766\n\nOne-Sample Test\nTest Value = 50\n t    df    Sig. (2-tailed)    Mean Difference    95% Confidence Interval of the Difference Lower Upper\nWafer counts    1.782    9    .108    3.700    -1.00    8.40",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "oneSample",
+        "candidateKinds": ["oneSample"],
+        "selectedKind": "oneSample",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 53.70,
+          "primary.standardDeviation": 6.5668,
+          "referenceMean": 50,
+          "reported.t": 1.782,
+          "reported.df": 9,
+          "reported.p": 0.108,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "oneSample",
+          "confirmedTail": "twoTailed",
+          "formalContains": "one-sample"
+        }
+      ]
+    },
+    {
+      "id": "SPSS_ONE02_P000_UNICODE_MINUS",
+      "title": "SPSS one sample with unicode minus and SPSS .000",
+      "format": "spss_one_sample",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised from the SPSS One-Sample Test table layout. Numeric values are from the Datanovia mice one-sample example already used by Res-Quill T19.",
+      "input": "One-Sample Statistics\nN    Mean    Std. Deviation    Std. Error Mean\nMice    10    20.14    1.896313    .599667\n\nOne-Sample Test\nTest Value = 25\n t    df    Sig. (2-tailed)    Mean Difference    95% Confidence Interval of the Difference Lower Upper\nMice    \u22128.1045    9    .000    \u22124.860    \u22126.217    \u22123.503",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "oneSample",
+        "candidateKinds": ["oneSample"],
+        "selectedKind": "oneSample",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 20.14,
+          "primary.standardDeviation": 1.896313,
+          "referenceMean": 25,
+          "reported.t": -8.1045,
+          "reported.df": 9,
+          "reported.p": 0.001,
+          "reported.meanDifference": -4.860,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        },
+        "spssRoundedZeroFields": ["reported.p"]
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "oneSample",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "APA01_WELCH_TWO_TAILED",
+      "title": "APA-style Welch sentence with non-integer df and threshold p",
+      "format": "apa_sentence",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised APA-style report sentence. Numeric values are the Res-Quill Welch mock from the 2026-08-30 task prompt.",
+      "input": "Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a two-tailed Welch independent-samples t test, t(48.80) = 4.34, p < .001, mean difference = 9.00, SE = 2.0737, 95% CI [4.83, 13.17].",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 20,
+          "primary.mean": 81.40,
+          "secondary.n": 31,
+          "secondary.mean": 72.40,
+          "reported.t": 4.34,
+          "reported.df": 48.80,
+          "reported.p": 0.001,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "t(48.80) = 4.34"
+        }
+      ]
+    },
+    {
+      "id": "APA02_PAIRED_TWO_TAILED",
+      "title": "APA-style paired-samples sentence",
+      "format": "apa_sentence",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised APA-style report sentence. Numeric values are from the NIST Dataplot Bowker and Lieberman paired example already used by Res-Quill T19.",
+      "input": "Before (n = 15, M = 56.60, SD = 12.3592) and After (n = 15, M = 48.60, SD = 11.6288) were analyzed with a two-tailed paired-samples t test, t(14) = 2.810, p = .014, paired mean difference = 8.000, SDdiff = 11.0268, SE = 2.8469, 95% CI [1.89, 14.11].",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 15,
+          "secondary.n": 15,
+          "paired.meanDifference": 8.000,
+          "paired.differenceStandardDeviation": 11.0268,
+          "reported.t": 2.810,
+          "reported.df": 14,
+          "reported.p": 0.014,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "pairedSamples",
+          "confirmedTail": "twoTailed",
+          "formalContains": "paired-samples"
+        }
+      ]
+    },
+    {
+      "id": "APA03_ONE_SAMPLE_LOWER_TAIL",
+      "title": "APA-style one-sample sentence with lower-tail p",
+      "format": "apa_sentence",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised APA-style report sentence. Numeric values are from the Datanovia mice one-sample example already used by Res-Quill T19.",
+      "input": "Mice (n = 10, M = 20.14, SD = 1.8963) were compared with 25 using a lower-tail one-sample t test, t(9) = \u22128.10, p < .001, mean difference = \u22124.86, SE = .5996, 95% CI [\u22126.22, \u22123.50].",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "oneSample",
+        "candidateKinds": ["oneSample"],
+        "selectedKind": "oneSample",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 20.14,
+          "referenceMean": 25,
+          "reported.t": -8.10,
+          "reported.df": 9,
+          "reported.p": 0.001,
+          "reported.meanDifference": -4.86,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "oneSample",
+          "confirmedTail": "less",
+          "formalContains": "one-tailed less-than"
+        }
+      ]
+    },
+    {
+      "id": "APA04_UNKNOWN_TAIL",
+      "title": "APA-style sentence where p tail is not stated",
+      "format": "apa_sentence",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised APA-style report sentence based on the prompt example. Numeric values are the Res-Quill Welch mock from the 2026-08-30 task prompt.",
+      "input": "Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a Welch independent-samples t test, t(48.80) = 4.34, p < .001, mean difference = 9.00, SE = 2.0737, 95% CI [4.83, 13.17].",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": ["p.tail.unknown"],
+        "fieldValues": {
+          "reported.t": 4.34,
+          "reported.df": 48.80,
+          "reported.p": 0.001
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "KV01_WELCH_TABULAR",
+      "title": "Simple key-value and tabular Welch text",
+      "format": "key_value",
+      "provenance": "synthesised",
+      "shapeSource": "Synthesised simple key-value/tabular text using labels students commonly paste from spreadsheets or copied summaries. Numeric values are the Res-Quill Welch mock from the 2026-08-30 task prompt.",
+      "input": "Test: Welch independent t-test\nGroup    N    Mean    Std. Deviation\nRetrieval practice    20    81.40    5.5378\nRestudy               31    72.40    9.2616\nt = 4.34\ndf = 48.80\np (two-tailed) < .001\nMean Difference = 9.00\nStd. Error Difference = 2.0737\n95% CI [4.83, 13.17]",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 20,
+          "secondary.n": 31,
+          "reported.t": 4.34,
+          "reported.df": 48.80,
+          "reported.p": 0.001,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "NEG01_EMPTY",
+      "title": "Empty input",
+      "format": "negative",
+      "provenance": "synthesised",
+      "shapeSource": "Deliberate negative control.",
+      "input": "",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {}
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "NEG02_PROSE",
+      "title": "Random prose",
+      "format": "negative",
+      "provenance": "synthesised",
+      "shapeSource": "Deliberate negative control.",
+      "input": "The student wrote that the intervention worked very well, but no statistical output or t-test values were included.",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {}
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "NEG03_RAW_DATA",
+      "title": "Raw data columns",
+      "format": "negative",
+      "provenance": "synthesised",
+      "shapeSource": "Deliberate negative control shaped like spreadsheet raw paired data.",
+      "input": "Before\tAfter\n63\t69\n65\t65\n56\t62\n100\t91\n88\t78",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {}
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "NEG04_CHI_SQUARE",
+      "title": "Chi-square output",
+      "format": "negative",
+      "provenance": "synthesised",
+      "shapeSource": "Deliberate negative control shaped like SPSS chi-square output.",
+      "input": "Chi-Square Tests\nValue    df    Asymp. Sig. (2-sided)\nPearson Chi-Square    6.231    1    .013\nLikelihood Ratio      6.104    1    .014",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {}
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "NEG05_ANOVA",
+      "title": "ANOVA table",
+      "format": "negative",
+      "provenance": "synthesised",
+      "shapeSource": "Deliberate negative control shaped like a one-way ANOVA table.",
+      "input": "ANOVA\nSum of Squares    df    Mean Square    F    Sig.\nBetween Groups    84.12    2    42.06    5.72    .006\nWithin Groups     198.40   27   7.35",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {}
+      },
+      "roundTrip": []
+    }
+  ]
+}
