@@ -29,6 +29,17 @@ void main() {
           expect(result.refusalReasons, isNotEmpty);
         }
 
+        final detectedKeys = result.fields.map((field) => field.key).toSet();
+        final missingKeys = result.missingRequiredFields
+            .map((field) => field.key)
+            .whereType<PasteFieldKey>()
+            .toSet();
+        expect(
+          detectedKeys.intersection(missingKeys),
+          isEmpty,
+          reason: '${fixture.id} reports a key as both detected and missing',
+        );
+
         for (final field in result.fields) {
           expect(field.start, greaterThanOrEqualTo(0));
           expect(field.end, lessThanOrEqualTo(fixture.input.length));
@@ -121,6 +132,23 @@ void main() {
         () => result.candidates.single.toValidationInput(),
         throwsA(isA<PasteParseException>()),
       );
+    });
+
+    test('unknown p tail is an ambiguity, not a missing reported-p field', () {
+      final fixture = fixtures.singleWhere(
+        (item) => item.id == 'APA04_UNKNOWN_TAIL',
+      );
+      final result = TTestPasteParser.parse(fixture.input);
+
+      expect(
+        result.fields.map((field) => field.key),
+        contains(PasteFieldKey.reportedP),
+      );
+      expect(
+        result.missingRequiredFields.map((field) => field.key),
+        isNot(contains(PasteFieldKey.reportedP)),
+      );
+      expect(result.missingRequiredFields, isEmpty);
     });
   });
 }

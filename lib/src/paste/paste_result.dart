@@ -238,30 +238,17 @@ class PasteTTestCandidate {
         );
       }
     }
-    final pTail = confirmedPValueTail ?? reportedPValueTail;
-    if (field(PasteFieldKey.reportedP) != null && pTail == null) {
-      missing.add(
-        const PasteMissingField(
-          key: PasteFieldKey.reportedP,
-          reason: 'reported p tail is unknown',
-        ),
-      );
-    }
-    if (pTail == ReportedPValueTail.oneTailedObservedDirection) {
-      missing.add(
-        const PasteMissingField(
-          key: PasteFieldKey.reportedP,
-          reason: 'one-sided p direction requires confirmation',
-        ),
-      );
-    }
     return missing;
   }
 
   bool canBuildValidationInput({ReportedPValueTail? confirmedPValueTail}) {
-    return missingRequiredFields(
-      confirmedPValueTail: confirmedPValueTail,
-    ).isEmpty;
+    final pTail = confirmedPValueTail ?? reportedPValueTail;
+    if (field(PasteFieldKey.reportedP) != null &&
+        (pTail == null ||
+            pTail == ReportedPValueTail.oneTailedObservedDirection)) {
+      return false;
+    }
+    return missingRequiredFields().isEmpty;
   }
 
   TTestValidationInput toValidationInput({
@@ -281,6 +268,9 @@ class PasteTTestCandidate {
         confirmedPValueTail ??
         reportedPValueTail ??
         (throw PasteParseException('reported p tail is unknown.'));
+    if (pTail == ReportedPValueTail.oneTailedObservedDirection) {
+      throw PasteParseException('one-sided p direction requires confirmation.');
+    }
     final confidenceLevel =
         number(PasteFieldKey.confidenceLevel)?.value ??
         (throw PasteParseException('confidence level is missing.'));
