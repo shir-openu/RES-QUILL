@@ -221,7 +221,7 @@ void main() {
       );
 
       expect(report.isBlocked, isTrue);
-      expect(report.refusalReason, contains('p.t_df'));
+      expect(report.refusalReason, contains('Reported p matches t and df'));
       expect(report.formalResult, isNull);
       expect(report.evidenceMap.entries, isEmpty);
     });

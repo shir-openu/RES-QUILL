@@ -56,6 +56,17 @@ void main() {
       expect(checkById(checks, 't.descriptives').status, ValidationStatus.fail);
     });
 
+    test('formats rounding tolerance without floating-point noise', () {
+      final checks = TTestValidator.validate(
+        validStudentInput(t: ReportedValue(value: 1.25, decimalPlaces: 2)),
+      );
+
+      expect(
+        checkById(checks, 't.descriptives').tolerance,
+        'value was rounded to 2 decimals, so tolerance is +/- 0.005',
+      );
+    });
+
     test('flags p mismatched with reported t and df', () {
       final checks = TTestValidator.validate(
         validStudentInput(p: ReportedValue(value: 0.900, decimalPlaces: 3)),

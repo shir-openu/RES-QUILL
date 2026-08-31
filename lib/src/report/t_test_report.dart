@@ -283,7 +283,7 @@ class TTestReportGenerator {
 
   static String _refusalReason(List<ValidationCheck> failedChecks) {
     final details = failedChecks
-        .map((check) => '${check.id}: ${check.explanation}')
+        .map((check) => '${check.title}: ${check.explanation}')
         .join(' ');
     return 'Wording blocked because validation failed. $details';
   }

@@ -847,6 +847,7 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
       checks.add(
         ValidationCheck(
           id: 'calculation.input',
+          title: 'Values can be recalculated',
           status: ValidationStatus.fail,
           explanation: _messageFor(error),
         ),
@@ -870,6 +871,7 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
   ValidationCheck _alphaCheck(TTestReportOptions options) {
     return ValidationCheck(
       id: 'alpha.domain',
+      title: 'Alpha is between 0 and 1',
       status: ValidationStatus.pass,
       reported: options.alpha,
       tolerance: '(0, 1)',
@@ -2504,7 +2506,7 @@ class _ValidationScreen extends StatelessWidget {
                       for (final check in failedChecks)
                         _IssueRow(
                           tone: _toneForCheck(check.status),
-                          field: check.id,
+                          field: check.title,
                           title: _statusLabel(check.status),
                           body: _checkBody(check),
                         ),
@@ -2543,7 +2545,7 @@ class _ValidationScreen extends StatelessWidget {
                           for (final check in checks)
                             _IssueRow(
                               tone: _toneForCheck(check.status),
-                              field: check.id,
+                              field: check.title,
                               title: _statusLabel(check.status),
                               body: _checkBody(check),
                             ),
@@ -2578,9 +2580,9 @@ class _ValidationScreen extends StatelessWidget {
 
   static String _parsedTitle(TTestValidationInput? input) {
     if (input == null) {
-      return 'Your result';
+      return 'Your values';
     }
-    return '${_kindShortLabel(input.kind)} result';
+    return '${_kindShortLabel(input.kind)} values';
   }
 
   static String _checkBody(ValidationCheck check) {
@@ -2592,7 +2594,10 @@ class _ValidationScreen extends StatelessWidget {
       parts.add('Calculated: ${_fmt(check.recomputed!)}.');
     }
     if (check.tolerance != null) {
-      parts.add('Allowed difference: ${check.tolerance}.');
+      final label = check.tolerance!.startsWith('value was rounded')
+          ? 'Allowed difference'
+          : 'Check rule';
+      parts.add('$label: ${check.tolerance}.');
     }
     return parts.join(' ');
   }
@@ -2614,42 +2619,83 @@ class _ValueSummary extends StatelessWidget {
     final failures = checks
         .where((check) => check.status == ValidationStatus.fail)
         .length;
+    final reportedT = input?.reportedT;
+    final reportedDf = input?.reportedDegreesOfFreedom;
     final reportedP = input?.reportedP;
+    final tFailure = _firstFailureFor({'t.descriptives', 'p.t_df'});
+    final dfFailure = _firstFailureFor({
+      'df.plausibility',
+      'p.t_df',
+      'ci.diff_se',
+      'ci.lower',
+      'ci.upper',
+    });
+    final pFailure = _firstFailureFor({'domain.p', 'p.t_df'});
     return _ResponsiveGrid(
       columnsWhenWide: 2,
       minTileHeight: 190,
       children: [
         _ValueCard(
-          tone: _StatusTone.accepted,
+          cardKey: const Key('validation-summary-t'),
+          tone: tFailure != null
+              ? _StatusTone.error
+              : reportedT == null || result == null
+              ? _StatusTone.warning
+              : _StatusTone.accepted,
           label: 't',
-          value: result == null ? 'UNKNOWN' : 't = ${_fmt(result!.t)}',
-          body: result == null
+          value: reportedT == null
+              ? 't not supplied'
+              : 't = ${_fmt(reportedT.value)}',
+          body: tFailure != null
+              ? 'Problem row: ${tFailure.title}.'
+              : reportedT == null
+              ? 'No reported t to check.'
+              : result == null
               ? 'Could not recompute t.'
-              : 'Recomputed from your values.',
+              : 'Checked against the descriptive statistics.',
         ),
         _ValueCard(
-          tone: _StatusTone.accepted,
+          cardKey: const Key('validation-summary-df'),
+          tone: dfFailure != null
+              ? _StatusTone.error
+              : reportedDf == null || result == null
+              ? _StatusTone.warning
+              : _StatusTone.accepted,
           label: 'df',
-          value: result == null
-              ? 'UNKNOWN'
-              : 'df = ${_fmt(result!.degreesOfFreedom)}',
-          body: result?.kind == TTestKind.independentWelch
+          value: reportedDf == null
+              ? 'df not supplied'
+              : 'df = ${_fmt(reportedDf.value)}',
+          body: dfFailure != null
+              ? 'Problem row: ${dfFailure.title}.'
+              : reportedDf == null
+              ? 'No reported df to check.'
+              : result?.kind == TTestKind.independentWelch
               ? 'Decimal df is valid for Welch.'
               : 'Matches the selected test.',
         ),
         _ValueCard(
-          tone: reportedP?.relation == ReportedRelation.lessThan
+          cardKey: const Key('validation-summary-p'),
+          tone: pFailure != null
+              ? _StatusTone.error
+              : reportedP == null
+              ? _StatusTone.warning
+              : reportedP.relation == ReportedRelation.lessThan
               ? _StatusTone.warning
               : _StatusTone.accepted,
           label: 'p',
           value: reportedP == null
               ? 'p not supplied'
               : 'p ${_relationSymbol(reportedP.relation)} ${_fmt(reportedP.value)}',
-          body: reportedP?.relation == ReportedRelation.lessThan
+          body: pFailure != null
+              ? 'Problem row: ${pFailure.title}.'
+              : reportedP == null
+              ? 'No reported p to check.'
+              : reportedP.relation == ReportedRelation.lessThan
               ? '.000 is shown as p < .001.'
               : 'Checked against t and df.',
         ),
         _ValueCard(
+          cardKey: const Key('validation-summary-fails'),
           tone: failures > 0 ? _StatusTone.error : _StatusTone.accepted,
           label: 'Fails',
           value: failures > 0 ? '$failures fail' : '0 fail',
@@ -2657,6 +2703,15 @@ class _ValueSummary extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  ValidationCheck? _firstFailureFor(Set<String> ids) {
+    for (final check in checks) {
+      if (check.status == ValidationStatus.fail && ids.contains(check.id)) {
+        return check;
+      }
+    }
+    return null;
   }
 }
 
@@ -4364,12 +4419,14 @@ class _IssueRow extends StatelessWidget {
 
 class _ValueCard extends StatelessWidget {
   const _ValueCard({
+    this.cardKey,
     required this.tone,
     required this.label,
     required this.value,
     required this.body,
   });
 
+  final Key? cardKey;
   final _StatusTone tone;
   final String label;
   final String value;
@@ -4379,6 +4436,7 @@ class _ValueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
     return Container(
+      key: cardKey,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface.withValues(alpha: 0.46),

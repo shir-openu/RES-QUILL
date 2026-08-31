@@ -36,9 +36,13 @@ class ReportedValue {
   double get tolerance => 0.5 * math.pow(10, -decimalPlaces).toDouble() + 1e-12;
 
   String get toleranceDescription {
-    return relation == ReportedRelation.equalRounded
-        ? '+/- $tolerance from rounding to $decimalPlaces decimals'
-        : 'directional threshold at $value';
+    if (relation == ReportedRelation.equalRounded) {
+      return 'value was rounded to ${_decimalPlacesText(decimalPlaces)}, '
+          'so tolerance is +/- ${_formatFixed(tolerance, decimalPlaces + 1)}';
+    }
+    final formattedValue = _formatFixed(value, decimalPlaces);
+    return 'reported as ${_relationSymbol(relation)} $formattedValue; '
+        'calculated value must be ${_relationSymbol(relation)} $formattedValue';
   }
 
   bool accepts(double recomputed) {
@@ -61,6 +65,7 @@ class ReportedValue {
 class ValidationCheck {
   ValidationCheck({
     required this.id,
+    required this.title,
     required this.status,
     required this.explanation,
     this.recomputed,
@@ -69,6 +74,7 @@ class ValidationCheck {
   });
 
   final String id;
+  final String title;
   final ValidationStatus status;
   final String explanation;
   final double? recomputed;
@@ -298,6 +304,7 @@ class TTestValidator {
       checks.add(
         ValidationCheck(
           id: 'domain.${label.toLowerCase().replaceAll(' ', '_')}',
+          title: '$label values are usable',
           status: valid ? ValidationStatus.pass : ValidationStatus.fail,
           explanation: valid
               ? '$label has usable n, mean, and SD.'
@@ -311,6 +318,7 @@ class TTestValidator {
       checks.add(
         ValidationCheck(
           id: 'domain.p',
+          title: 'Reported p is between 0 and 1',
           status: p >= 0 && p <= 1
               ? ValidationStatus.pass
               : ValidationStatus.fail,
@@ -330,6 +338,7 @@ class TTestValidator {
     if (input.reportedDegreesOfFreedom == null) {
       return ValidationCheck(
         id: 'df.plausibility',
+        title: 'Reported df matches the selected test',
         status: ValidationStatus.notApplicable,
         explanation: 'No reported df was supplied.',
       );
@@ -339,6 +348,7 @@ class TTestValidator {
       final recomputed = resultFromInput(input).degreesOfFreedom;
       return _compare(
         id: 'df.plausibility',
+        title: 'Reported df matches the selected test',
         recomputed: recomputed,
         reported: input.reportedDegreesOfFreedom!,
         passExplanation:
@@ -349,6 +359,7 @@ class TTestValidator {
     } on StatsException catch (error) {
       return ValidationCheck(
         id: 'df.plausibility',
+        title: 'Reported df matches the selected test',
         status: ValidationStatus.notApplicable,
         reported: input.reportedDegreesOfFreedom!.value,
         explanation: error.message,
@@ -360,6 +371,7 @@ class TTestValidator {
     if (input.reportedT == null) {
       return ValidationCheck(
         id: 't.descriptives',
+        title: 'Reported t matches the descriptive statistics',
         status: ValidationStatus.notApplicable,
         explanation: 'No reported t statistic was supplied.',
       );
@@ -369,6 +381,7 @@ class TTestValidator {
       final recomputed = resultFromInput(input).t;
       return _compare(
         id: 't.descriptives',
+        title: 'Reported t matches the descriptive statistics',
         recomputed: recomputed,
         reported: input.reportedT!,
         passExplanation:
@@ -379,6 +392,7 @@ class TTestValidator {
     } on StatsException catch (error) {
       return ValidationCheck(
         id: 't.descriptives',
+        title: 'Reported t matches the descriptive statistics',
         status: ValidationStatus.notApplicable,
         reported: input.reportedT!.value,
         explanation: error.message,
@@ -390,6 +404,7 @@ class TTestValidator {
     if (input.reportedP == null) {
       return ValidationCheck(
         id: 'p.t_df',
+        title: 'Reported p matches t and df',
         status: ValidationStatus.notApplicable,
         explanation: 'No reported p-value was supplied.',
       );
@@ -397,6 +412,7 @@ class TTestValidator {
     if (input.reportedT == null || input.reportedDegreesOfFreedom == null) {
       return ValidationCheck(
         id: 'p.t_df',
+        title: 'Reported p matches t and df',
         status: ValidationStatus.notApplicable,
         reported: input.reportedP!.value,
         explanation: 'A reported t and df are required to validate p.',
@@ -416,6 +432,7 @@ class TTestValidator {
       };
       return _compare(
         id: 'p.t_df',
+        title: 'Reported p matches t and df',
         recomputed: recomputed,
         reported: input.reportedP!,
         passExplanation: 'The reported p matches the reported t and df.',
@@ -424,6 +441,7 @@ class TTestValidator {
     } on StatsException catch (error) {
       return ValidationCheck(
         id: 'p.t_df',
+        title: 'Reported p matches t and df',
         status: ValidationStatus.notApplicable,
         reported: input.reportedP!.value,
         explanation: error.message,
@@ -442,6 +460,7 @@ class TTestValidator {
       return [
         ValidationCheck(
           id: 'ci.diff_se',
+          title: 'Confidence interval has enough values to check',
           status: ValidationStatus.notApplicable,
           explanation:
               'Mean difference, SE, df, and both CI bounds are required to validate CI.',
@@ -463,6 +482,7 @@ class TTestValidator {
       return [
         _compare(
           id: 'ci.lower',
+          title: 'Lower CI bound matches the reported difference and SE',
           recomputed: recomputedLower,
           reported: input.reportedCiLower!,
           passExplanation:
@@ -472,6 +492,7 @@ class TTestValidator {
         ),
         _compare(
           id: 'ci.upper',
+          title: 'Upper CI bound matches the reported difference and SE',
           recomputed: recomputedUpper,
           reported: input.reportedCiUpper!,
           passExplanation:
@@ -484,6 +505,7 @@ class TTestValidator {
       return [
         ValidationCheck(
           id: 'ci.diff_se',
+          title: 'Confidence interval has enough values to check',
           status: ValidationStatus.notApplicable,
           reported: input.reportedCiLower!.value,
           explanation: error.message,
@@ -504,6 +526,7 @@ class TTestValidator {
 
     return ValidationCheck(
       id: 'grim.${config.label.toLowerCase().replaceAll(' ', '_')}',
+      title: 'Rounded mean is possible for ${config.label}',
       status: attainable ? ValidationStatus.pass : ValidationStatus.fail,
       recomputed: nearestMean,
       reported: config.reportedMean,
@@ -516,6 +539,7 @@ class TTestValidator {
 
   static ValidationCheck _compare({
     required String id,
+    required String title,
     required double recomputed,
     required ReportedValue reported,
     required String passExplanation,
@@ -524,6 +548,7 @@ class TTestValidator {
     final pass = reported.accepts(recomputed);
     return ValidationCheck(
       id: id,
+      title: title,
       status: pass ? ValidationStatus.pass : ValidationStatus.fail,
       recomputed: recomputed,
       reported: reported.value,
@@ -531,4 +556,26 @@ class TTestValidator {
       explanation: pass ? passExplanation : failExplanation,
     );
   }
+}
+
+String _decimalPlacesText(int decimalPlaces) {
+  return decimalPlaces == 1 ? '1 decimal' : '$decimalPlaces decimals';
+}
+
+String _formatFixed(double value, int decimals) {
+  final fixed = value.toStringAsFixed(math.max(0, decimals));
+  if (!fixed.contains('.')) {
+    return fixed;
+  }
+  return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
+String _relationSymbol(ReportedRelation relation) {
+  return switch (relation) {
+    ReportedRelation.equalRounded => '=',
+    ReportedRelation.lessThan => '<',
+    ReportedRelation.lessThanOrEqual => '<=',
+    ReportedRelation.greaterThan => '>',
+    ReportedRelation.greaterThanOrEqual => '>=',
+  };
 }

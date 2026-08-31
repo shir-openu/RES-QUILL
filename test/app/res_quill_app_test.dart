@@ -82,6 +82,69 @@ void main() {
     expect(find.text('Copy your report.'), findsNothing);
   });
 
+  testWidgets('validation rows do not expose raw check ids', (tester) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await _pasteAndReview(tester, failingApaPaste);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('confirm-detected-values')),
+    );
+    await tester.tap(find.byKey(const Key('confirm-detected-values')));
+    await tester.pumpAndSettle();
+    final allChecksButton = find.widgetWithText(
+      FilledButton,
+      'Show all checks',
+    );
+    await tester.ensureVisible(allChecksButton);
+    await tester.tap(allChecksButton);
+    await tester.pumpAndSettle();
+
+    final visibleText = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((widget) => widget.data ?? widget.textSpan?.toPlainText() ?? '')
+        .join('\n');
+    final rawCheckId = RegExp(
+      r'\b(?:alpha\.domain|calculation\.input|ci\.(?:diff_se|lower|upper)|'
+      r'df\.plausibility|domain\.[a-z0-9_]+|grim\.[a-z0-9_]+|'
+      r'p\.t_df|t\.descriptives)\b',
+    );
+    expect(rawCheckId.hasMatch(visibleText), isFalse, reason: visibleText);
+    expect(
+      find.text('Reported t matches the descriptive statistics'),
+      findsWidgets,
+    );
+    expect(find.text('Reported p matches t and df'), findsWidgets);
+  });
+
+  testWidgets('a value with a failing check does not render a pass badge', (
+    tester,
+  ) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await _pasteAndReview(tester, failingApaPaste);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('confirm-detected-values')),
+    );
+    await tester.tap(find.byKey(const Key('confirm-detected-values')));
+    await tester.pumpAndSettle();
+
+    final pTile = find.byKey(const Key('validation-summary-p'));
+    expect(
+      find.descendant(of: pTile, matching: find.text('Error')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: pTile, matching: find.text('OK')), findsNothing);
+    expect(
+      find.descendant(
+        of: pTile,
+        matching: find.text('Problem row: Reported p matches t and df.'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('paste ambiguity cannot proceed until resolved', (tester) async {
     await _setDesktop(tester);
     await tester.pumpWidget(const MainApp());

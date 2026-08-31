@@ -117,7 +117,7 @@ class PasteNumber {
   }
 
   @override
-  String toString() => '$relationSymbol $value';
+  String toString() => '$relationSymbol ${_formatPasteNumber(this)}';
 }
 
 class PasteExtractedField<T extends Object> {
@@ -145,10 +145,15 @@ class PasteExtractedField<T extends Object> {
       final prefix = value.relation == ReportedRelation.equalRounded
           ? ''
           : '${value.relationSymbol} ';
-      return '$prefix${value.value}';
+      return '$prefix${_formatPasteNumber(value)}';
     }
     return value.toString();
   }
+}
+
+String _formatPasteNumber(PasteNumber number) {
+  final decimals = number.decimalPlaces.clamp(0, 6);
+  return number.value.toStringAsFixed(decimals);
 }
 
 class PasteAmbiguity {

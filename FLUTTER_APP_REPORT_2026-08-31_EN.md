@@ -170,3 +170,48 @@ Verification:
 - Inspected `captures\desktop_dark_03_input_spss_independent.png`, `captures\desktop_dark_guide_03_input_spss_independent.png`, and `captures\desktop_dark_04_validation_failing.png`.
 - Sentence read from the input capture: "Student row. Levene's Sig. = 0.525; with .05 rule, SPSS points to this row."
 - Sentence read from the validation capture: "Fix failed rows before generating the report."
+
+## T32 Validation Screen Clarity Fix
+
+Contradiction resolved:
+- The left validation tiles now claim "these are the reported values being checked," not independent green approvals.
+- If a reported value is connected to a failing validation check, its tile renders as Error and points to the matching problem row by human title.
+- This keeps the summary and the problem list consistent: `p = 0.999` no longer shows OK while the p-vs-t-and-df check fails.
+
+Check ID audit:
+- Validation check IDs are still internal, but the validation UI now shows human titles.
+- Check ID families removed from validation UI: 10 (`domain.*`, `df.plausibility`, `t.descriptives`, `p.t_df`, `ci.diff_se`, `ci.lower`, `ci.upper`, `grim.*`, `alpha.domain`, `calculation.input`).
+- Blocked report refusal text also uses human titles instead of check IDs.
+
+Raw double audit:
+- User-facing raw double display paths found and fixed: 2.
+- Tolerance text now formats the rounding tolerance compactly instead of printing binary-floating-point noise.
+- Pasted-number detail text now formats `PasteNumber` values with their captured decimal count rather than raw `double.toString()`.
+- Effect sizes, CI bounds, p-values, percentages, and visible charts were already routed through `ApaNumberFormat` or the app display formatter.
+
+Recaptured validation wording:
+- Error row title: "Reported t matches the descriptive statistics"
+- Error row body: "The reported t does not match the means, SDs, ns, and stated test. Given: 1. Calculated: 4.340. Allowed difference: value was rounded to 2 decimals, so tolerance is +/- 0.005."
+- Error row title: "Reported p matches t and df"
+- Error row body: "The reported p does not match the reported t and df. Given: 0.999. Calculated: 0.322. Allowed difference: value was rounded to 3 decimals, so tolerance is +/- 0.0005."
+- Tolerance sentence quoted from the capture: "Allowed difference: value was rounded to 2 decimals, so tolerance is +/- 0.005."
+
+Merged blocker list status after T32:
+- Start path: fixed.
+- SPSS row choice: fixed; the app still asks the student to confirm the row instead of silently choosing it.
+- p direction and SPSS .000: fixed.
+- Alpha: fixed.
+- Decimal Welch df: fixed.
+- Validation failure priority and clarity: fixed by T30/T31 and tightened by T32.
+- Copyable APA wording versus unsupported causal claims: fixed.
+- Missing confidence level: fixed.
+- Remaining unfixed blockers from the merged list: 0.
+- Physical Android device runtime check: UNKNOWN; not part of the merged blocker list and not rerun in T32.
+
+Verification:
+- `C:\flutter\bin\dart.bat format lib test tool`: passed.
+- `C:\flutter\bin\flutter.bat analyze`: passed.
+- `C:\flutter\bin\flutter.bat test`: 104 passed, 0 failed.
+- `C:\flutter\bin\flutter.bat test --update-goldens tool\verify\capture_app_screens_test.dart`: passed.
+- Recaptured and inspected `captures\desktop_dark_04_validation_failing.png` and `captures\phone390_dark_04_validation_failing.png`.
+- Web, Windows, and Android builds: UNKNOWN in T32; not rerun.
