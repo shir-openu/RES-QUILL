@@ -53,7 +53,7 @@ void main() {
       expect(report.effectSizeSentence, contains("Hedges' g = 1.13"));
       expect(
         report.effectSizeSentence,
-        contains("Cohen's Statistical Power Analysis benchmarks"),
+        contains('Cohen (1988) would classify this as a large effect'),
       );
 
       final primaryMean = report.evidenceMap.entries.singleWhere(
@@ -198,12 +198,12 @@ void main() {
       );
       expect(
         report.formalResult!.plainText,
-        contains('the mean for Mice was lower than the reference value'),
+        contains('the sample mean for Mice was lower than the reference value'),
       );
       expect(
         report.plainLanguageMeaning,
         contains(
-          'statistical evidence that the mean for Mice was lower than '
+          'statistical evidence that the sample mean for Mice was lower than '
           'the reference value',
         ),
       );
@@ -299,6 +299,80 @@ void main() {
           'mean-difference sign.',
         ),
       );
+    });
+
+    test('supported direction claims use supplied labels, not role labels', () {
+      final oneSampleReport = _reportForInput(
+        TTestValidationInput(
+          kind: TTestKind.oneSample,
+          first: ReportedDescriptives(
+            label: 'Wafer counts',
+            n: 10,
+            mean: 54.70,
+            standardDeviation: 7.44,
+          ),
+          referenceMean: 50,
+        ),
+        context: const TTestReportContext(
+          primaryLabel: 'Wafer counts',
+          referenceLabel: 'the reference value',
+        ),
+      );
+      final twoGroupReport = _reportForInput(
+        _studentBodyFatInput(),
+        context: const TTestReportContext(
+          primaryLabel: 'Women',
+          secondaryLabel: 'Men',
+        ),
+      );
+
+      expect(
+        oneSampleReport.supportedClaims,
+        contains(
+          'The sample mean for Wafer counts was higher than '
+          'the reference value.',
+        ),
+      );
+      expect(
+        twoGroupReport.supportedClaims,
+        contains('The mean for Women was higher than the mean for Men.'),
+      );
+
+      for (final claim in [
+        ...oneSampleReport.supportedClaims,
+        ...twoGroupReport.supportedClaims,
+      ]) {
+        expect(claim, isNot(contains(RegExp(r'\bprimary\b'))));
+        expect(claim, isNot(contains(RegExp(r'\bsecondary\b'))));
+        expect(claim, isNot(contains(RegExp(r'\bcomparison\b'))));
+      }
+    });
+
+    test('one-tailed non-significant wording does not state null truth', () {
+      final report = _reportForInput(
+        _studentBodyFatInput(),
+        options: TTestReportOptions(tail: ReportTail.less),
+        context: const TTestReportContext(
+          outcomeLabel: 'body-fat percentage',
+          primaryLabel: 'Women',
+          secondaryLabel: 'Men',
+        ),
+      );
+      final wording = [
+        report.formalResult!.plainText,
+        report.plainLanguageMeaning!,
+      ].join('\n').toLowerCase();
+
+      expect(
+        report.formalResult!.plainText,
+        contains('did not provide evidence in the tested direction'),
+      );
+      expect(
+        report.plainLanguageMeaning,
+        contains('did not provide evidence in the tested one-tailed direction'),
+      );
+      expect(wording, isNot(contains('null hypothesis is true')));
+      expect(wording, isNot(contains('no difference exists')));
     });
 
     test('generated wording avoids common overclaiming phrases', () {

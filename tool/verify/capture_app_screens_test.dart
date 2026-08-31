@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:res_quill/src/app/res_quill_app.dart';
 
@@ -19,6 +22,10 @@ const _reportApaPaste =
 final _captureKey = GlobalKey();
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(_loadCaptureFonts);
+
   testWidgets('capture current app screens', (tester) async {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -61,6 +68,63 @@ void main() {
   });
 }
 
+Future<void> _loadCaptureFonts() async {
+  final uiFontPaths = _uiCaptureFontPaths();
+  if (uiFontPaths.isEmpty) {
+    throw StateError(
+      'No local font found for readable captures. Install Segoe UI, Arial, '
+      'or DejaVu Sans, then rerun this test.',
+    );
+  }
+
+  await _loadFontFamily('Ahem', uiFontPaths);
+  await _loadFontFamily('Segoe UI', uiFontPaths);
+  await _loadFontFamily('Roboto', uiFontPaths);
+  await _loadFontFamily('Consolas', _monoCaptureFontPaths(uiFontPaths));
+}
+
+Future<void> _loadFontFamily(String family, List<String> fontPaths) async {
+  final loader = FontLoader(family);
+  for (final path in fontPaths) {
+    final bytes = await File(path).readAsBytes();
+    loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
+  }
+  await loader.load();
+}
+
+List<String> _uiCaptureFontPaths() {
+  final windir = Platform.environment['WINDIR'] ?? r'C:\Windows';
+  final candidates = [
+    '$windir\\Fonts\\segoeui.ttf',
+    '$windir\\Fonts\\seguisb.ttf',
+    '$windir\\Fonts\\segoeuib.ttf',
+    '$windir\\Fonts\\arial.ttf',
+    '$windir\\Fonts\\arialbd.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    '/Library/Fonts/Arial.ttf',
+    '/Library/Fonts/Arial Bold.ttf',
+    '/System/Library/Fonts/Supplemental/Arial.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+  ];
+  return candidates.where((path) => File(path).existsSync()).toList();
+}
+
+List<String> _monoCaptureFontPaths(List<String> fallback) {
+  final windir = Platform.environment['WINDIR'] ?? r'C:\Windows';
+  final candidates = [
+    '$windir\\Fonts\\consola.ttf',
+    '$windir\\Fonts\\consolab.ttf',
+    '$windir\\Fonts\\cour.ttf',
+    '$windir\\Fonts\\courbd.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf',
+    '/System/Library/Fonts/Menlo.ttc',
+  ];
+  final paths = candidates.where((path) => File(path).existsSync()).toList();
+  return paths.isEmpty ? fallback : paths;
+}
+
 Future<void> _pumpApp(WidgetTester tester, _CaptureConfig config) async {
   tester.view.physicalSize = config.size;
   tester.view.devicePixelRatio = 1;
@@ -78,7 +142,7 @@ Future<void> _pumpApp(WidgetTester tester, _CaptureConfig config) async {
 
 Future<void> _loadDefaultExample(WidgetTester tester) async {
   final loadButton = find.descendant(
-    of: find.byKey(const Key('paste-load-example')),
+    of: find.byKey(const Key('paste-example-spss-independent')),
     matching: find.byType(FilledButton),
   );
   await tester.ensureVisible(loadButton);
@@ -100,6 +164,8 @@ Future<void> _pasteAndReview(WidgetTester tester, String paste) async {
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pump();
 }
 
 Future<void> _jumpToTop(WidgetTester tester) async {

@@ -27,27 +27,42 @@ const _spreadsheetBoundaryMessage =
     'output instead.';
 
 class _PasteExample {
-  const _PasteExample({required this.label, required this.assetPath});
+  const _PasteExample({
+    required this.id,
+    required this.label,
+    required this.controlLabel,
+    required this.assetPath,
+  });
 
+  final String id;
   final String label;
+  final String controlLabel;
   final String assetPath;
 }
 
 const _pasteExamples = [
   _PasteExample(
+    id: 'spss-independent',
     label: 'SPSS table: choose Student or Welch',
+    controlLabel: 'SPSS Student/Welch',
     assetPath: 'assets/examples/paste_text/spss_independent_samples.txt',
   ),
   _PasteExample(
+    id: 'spss-one-sample',
     label: 'SPSS one-sample table',
+    controlLabel: 'SPSS one-sample',
     assetPath: 'assets/examples/paste_text/spss_one_sample.txt',
   ),
   _PasteExample(
+    id: 'spss-p-rounded-zero',
     label: 'SPSS .000 becomes p < .001',
+    controlLabel: 'SPSS p < .001',
     assetPath: 'assets/examples/paste_text/spss_one_sample_p_is_000.txt',
   ),
   _PasteExample(
+    id: 'apa-sentence-ci',
     label: 'APA sentence with CI',
+    controlLabel: 'APA sentence with CI',
     assetPath: 'assets/examples/paste_text/apa_sentence_welch.txt',
   ),
 ];
@@ -266,9 +281,7 @@ class _MainAppState extends State<MainApp> {
         onExampleChanged: (example) {
           setState(() => _selectedExample = example);
         },
-        onLoadExample: () {
-          _loadExample(_selectedExample);
-        },
+        onLoadExample: _loadExample,
         onShowSpreadsheetBoundary: _showSpreadsheetBoundary,
         onManualKindChanged: (kind) {
           setState(() => _manualKind = kind);
@@ -352,6 +365,7 @@ class _MainAppState extends State<MainApp> {
     }
     _pasteController.text = text;
     setState(() {
+      _selectedExample = example;
       _inputMode = _InputMode.example;
       _screen = _Screen.input;
       _pasteResult = null;
@@ -1308,7 +1322,7 @@ class _InputScreen extends StatelessWidget {
   final _PasteExample selectedExample;
   final VoidCallback onBack;
   final ValueChanged<_PasteExample> onExampleChanged;
-  final VoidCallback onLoadExample;
+  final ValueChanged<_PasteExample> onLoadExample;
   final VoidCallback onShowSpreadsheetBoundary;
   final ValueChanged<TTestKind> onManualKindChanged;
   final ValueChanged<ReportedPValueTail> onManualTailChanged;
@@ -1440,7 +1454,7 @@ class _PastePanel extends StatelessWidget {
   final _PasteExample selectedExample;
   final bool pasteCanConfirm;
   final ValueChanged<_PasteExample> onExampleChanged;
-  final VoidCallback onLoadExample;
+  final ValueChanged<_PasteExample> onLoadExample;
   final VoidCallback onShowSpreadsheetBoundary;
   final VoidCallback onReviewPaste;
   final ValueChanged<PasteTTestCandidate> onCandidateChanged;
@@ -1450,6 +1464,9 @@ class _PastePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
+    final pasteBoxHeight = MediaQuery.sizeOf(context).width < 520
+        ? 260.0
+        : 416.0;
     return _GlassPanel(
       accent: colors.cyan,
       child: Column(
@@ -1465,7 +1482,7 @@ class _PastePanel extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 416,
+            height: pasteBoxHeight,
             child: TextField(
               key: const Key('paste-output-box'),
               controller: pasteController,
@@ -1747,7 +1764,7 @@ class _ManualFormPanel extends StatelessWidget {
   final TextEditingController ciUpperController;
   final _PasteExample selectedExample;
   final ValueChanged<_PasteExample> onExampleChanged;
-  final VoidCallback onLoadExample;
+  final ValueChanged<_PasteExample> onLoadExample;
   final VoidCallback onShowSpreadsheetBoundary;
   final ValueChanged<TTestKind> onManualKindChanged;
   final ValueChanged<ReportedPValueTail> onManualTailChanged;
@@ -2062,7 +2079,9 @@ class _ValidationScreen extends StatelessWidget {
               if (!wide) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [summary, const SizedBox(height: 18), decisions],
+                  children: _hasFailures
+                      ? [decisions, const SizedBox(height: 18), summary]
+                      : [summary, const SizedBox(height: 18), decisions],
                 );
               }
               return Row(
@@ -2176,61 +2195,41 @@ class _ExampleControls extends StatelessWidget {
   final String keyPrefix;
   final _PasteExample selectedExample;
   final ValueChanged<_PasteExample> onExampleChanged;
-  final VoidCallback onLoadExample;
+  final ValueChanged<_PasteExample> onLoadExample;
   final VoidCallback onShowSpreadsheetBoundary;
 
   @override
   Widget build(BuildContext context) {
-    final picker = DropdownButtonFormField<_PasteExample>(
-      key: Key('$keyPrefix-example-choice'),
-      initialValue: selectedExample,
-      isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Example'),
-      items: [
-        for (final example in _pasteExamples)
-          DropdownMenuItem(
-            value: example,
-            child: Text(example.label, overflow: TextOverflow.ellipsis),
-          ),
-      ],
-      onChanged: (value) {
-        if (value != null) {
-          onExampleChanged(value);
-        }
-      },
-    );
-    final buttons = Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        _ActionButton(
-          key: Key('$keyPrefix-load-example'),
-          label: 'Load example',
-          tone: _ButtonTone.secondary,
-          onPressed: onLoadExample,
-        ),
-        _ActionButton(
-          key: Key('$keyPrefix-spreadsheet-help'),
-          label: 'CSV or Excel?',
-          tone: _ButtonTone.tertiary,
-          onPressed: onShowSpreadsheetBoundary,
-        ),
-      ],
-    );
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 640) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [picker, const SizedBox(height: 10), buttons],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final columns = constraints.maxWidth < 520 ? 2 : 4;
+        final gaps = 10 * (columns - 1);
+        final buttonWidth = (constraints.maxWidth - gaps) / columns;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
-            Expanded(child: picker),
-            const SizedBox(width: 10),
-            buttons,
+            for (final example in _pasteExamples)
+              SizedBox(
+                width: buttonWidth,
+                child: _ActionButton(
+                  key: Key('$keyPrefix-example-${example.id}'),
+                  label: example.controlLabel,
+                  tone: example == selectedExample
+                      ? _ButtonTone.primary
+                      : _ButtonTone.secondary,
+                  onPressed: () {
+                    onExampleChanged(example);
+                    onLoadExample(example);
+                  },
+                ),
+              ),
+            _ActionButton(
+              key: Key('$keyPrefix-spreadsheet-help'),
+              label: 'CSV or Excel?',
+              tone: _ButtonTone.tertiary,
+              onPressed: onShowSpreadsheetBoundary,
+            ),
           ],
         );
       },
@@ -2498,6 +2497,7 @@ class _ProseBox extends StatelessWidget {
               text: TextSpan(
                 style: TextStyle(
                   color: colors.cardText,
+                  fontFamily: 'Segoe UI',
                   fontSize: 16.5,
                   height: 1.72,
                 ),
@@ -2751,6 +2751,7 @@ class _CiPainter extends CustomPainter {
         text: text,
         style: TextStyle(
           color: color,
+          fontFamily: 'Segoe UI',
           fontSize: size,
           fontWeight: FontWeight.w700,
         ),
@@ -2883,6 +2884,7 @@ class _DistributionPainter extends CustomPainter {
         text: text,
         style: TextStyle(
           color: color,
+          fontFamily: 'Segoe UI',
           fontSize: size,
           fontWeight: FontWeight.w700,
         ),
@@ -3519,7 +3521,11 @@ class _ActionButton extends StatelessWidget {
         return tone == _ButtonTone.primary ? colors.buttonText : colors.title;
       }),
       textStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+        const TextStyle(
+          fontFamily: 'Segoe UI',
+          fontSize: 14.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
 

@@ -51,7 +51,7 @@ class EffectSizeBenchmark {
 
   factory EffectSizeBenchmark.cohenBehavioralScience() {
     return EffectSizeBenchmark(
-      sourceLabel: "Cohen's Statistical Power Analysis benchmarks",
+      sourceLabel: 'Cohen (1988)',
       bands: const [
         EffectSizeBand(
           minimumInclusive: 0,
@@ -83,6 +83,14 @@ class EffectSizeBenchmark {
   String labelFor(double value) {
     final magnitude = value.abs();
     return bands.singleWhere((band) => band.accepts(magnitude)).label;
+  }
+
+  String classificationFor(double value) {
+    final label = labelFor(value);
+    if (label == 'small' || label == 'medium' || label == 'large') {
+      return 'a $label effect';
+    }
+    return label;
   }
 }
 
@@ -516,8 +524,8 @@ class TTestReportGenerator {
     final benchmark = options.effectSizeBenchmark;
     if (benchmark != null) {
       buffer.write(
-        ', a ${benchmark.labelFor(result.effectSize.cohensD)} magnitude by '
-        '${benchmark.sourceLabel}',
+        '; ${benchmark.sourceLabel} would classify this as '
+        '${benchmark.classificationFor(result.effectSize.cohensD)}',
       );
     }
     buffer.write('.');
@@ -570,10 +578,8 @@ class TTestReportGenerator {
       significant
           ? 'The selected-tail p-value is below the selected threshold.'
           : 'The selected-tail p-value is not below the selected threshold.',
-      if (sign > 0)
-        'The observed sample direction is primary higher than comparison.',
-      if (sign < 0)
-        'The observed sample direction is primary lower than comparison.',
+      if (sign > 0) _claimDirectionSentence(result, context),
+      if (sign < 0) _claimDirectionSentence(result, context),
       if (sign == 0)
         'The observed sample mean difference is zero in the supplied data.',
     ];
@@ -610,6 +616,16 @@ class TTestReportGenerator {
       supported: List.unmodifiable(supported),
       unsupported: List.unmodifiable(unsupported),
     );
+  }
+
+  static String _claimDirectionSentence(
+    TTestResult result,
+    TTestReportContext context,
+  ) {
+    final phrase = result.meanDifference > 0
+        ? _positiveDirection(result, context)
+        : _negativeDirection(result, context);
+    return '${phrase.substring(0, 1).toUpperCase()}${phrase.substring(1)}.';
   }
 
   static _FormattedGroupStats _groupStats(
@@ -719,10 +735,10 @@ class TTestReportGenerator {
   ) {
     final primary = _label(context.primaryLabel, 'Group 1');
     if (result.kind == TTestKind.oneSample) {
-      return 'the mean for $primary was higher than '
+      return 'the sample mean for $primary was higher than '
           '${_label(context.referenceLabel, 'the reference value')}';
     }
-    return 'the mean for $primary was higher than '
+    return 'the mean for $primary was higher than the mean for '
         '${_label(context.secondaryLabel, 'Group 2')}';
   }
 
@@ -732,10 +748,10 @@ class TTestReportGenerator {
   ) {
     final primary = _label(context.primaryLabel, 'Group 1');
     if (result.kind == TTestKind.oneSample) {
-      return 'the mean for $primary was lower than '
+      return 'the sample mean for $primary was lower than '
           '${_label(context.referenceLabel, 'the reference value')}';
     }
-    return 'the mean for $primary was lower than '
+    return 'the mean for $primary was lower than the mean for '
         '${_label(context.secondaryLabel, 'Group 2')}';
   }
 

@@ -128,18 +128,14 @@ void main() {
   ) async {
     const examples = [
       (
-        'SPSS table: choose Student or Welch',
+        'spss-independent',
         'SPSS has both rows. Choose the row your assignment uses.',
         'reported.df = 38',
       ),
-      ('SPSS one-sample table', 'Check what was found', 'reported.df = 30'),
+      ('spss-one-sample', 'Check what was found', 'reported.df = 30'),
+      ('spss-p-rounded-zero', 'Check what was found', 'reported.p = < 0.001'),
       (
-        'SPSS .000 becomes p < .001',
-        'Check what was found',
-        'reported.p = < 0.001',
-      ),
-      (
-        'APA sentence with CI',
+        'apa-sentence-ci',
         'Choose whether the p-value is one-tailed or two-tailed.',
         'reported.df = 48.8',
       ),
@@ -152,14 +148,8 @@ void main() {
       await tester.pumpWidget(const MainApp());
       await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
       await tester.pumpAndSettle();
-      if (example.$1 != examples.first.$1) {
-        await tester.tap(find.byKey(const Key('paste-example-choice')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(example.$1).last);
-        await tester.pumpAndSettle();
-      }
       final loadButton = find.descendant(
-        of: find.byKey(const Key('paste-load-example')),
+        of: find.byKey(Key('paste-example-${example.$1}')),
         matching: find.byType(FilledButton),
       );
       await tester.ensureVisible(loadButton);

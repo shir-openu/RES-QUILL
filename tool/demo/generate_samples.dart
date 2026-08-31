@@ -870,6 +870,25 @@ pre {
 .wording p {
   margin: 0 0 10px;
 }
+.note {
+  margin: -2px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.claims {
+  margin: 0 0 10px;
+}
+.claims strong {
+  display: block;
+  margin: 0 0 4px;
+}
+.claims ul {
+  margin: 4px 0 10px 20px;
+  padding: 0;
+}
+.claims li {
+  margin: 0 0 4px;
+}
 .blocked-reason {
   color: var(--blocked);
   font-weight: 700;
@@ -950,6 +969,7 @@ String _caseHtml(_RenderedCase caseOutput) {
       <h3>Inputs</h3>
       <pre>${_h(caseOutput.demoCase.inputSummary)}</pre>
       <h3>Computed Values</h3>
+      <p class="note">Raw engine values are shown at full precision for verification; generated wording uses APA rounding.</p>
       ${_computedTable(caseOutput.result)}
       <h3>Validation</h3>
       ${_validationTable(caseOutput.checks)}
@@ -985,10 +1005,15 @@ String _wordingHtml(TTestReportOutput report) {
   <p><strong>Plain language:</strong> ${_h(report.plainLanguageMeaning!)}</p>
   <p><strong>Effect size:</strong> ${_h(report.effectSizeSentence!)}</p>
   $cautions
-  <p><strong>Supported:</strong> ${_h(report.supportedClaims.join(' | '))}</p>
-  <p><strong>Unsupported:</strong> ${_h(report.unsupportedClaims.join(' | '))}</p>
+  ${_claimsHtml('Supported', report.supportedClaims)}
+  ${_claimsHtml('Unsupported', report.unsupportedClaims)}
 </div>
 ''';
+}
+
+String _claimsHtml(String title, List<String> claims) {
+  final items = claims.map((claim) => '<li>${_h(claim)}</li>').join();
+  return '<div class="claims"><strong>${_h(title)}:</strong><ul>$items</ul></div>';
 }
 
 String _computedTable(TTestResult result) {
