@@ -144,3 +144,13 @@ The same related-only treatment was applied to t when it is only involved in a p
 None found in this T34 rerun.
 
 The two previous blockers are cleared. `spss_independent_samples.txt` and `apa_sentence_welch.txt` now generate reports from the real app, and the newly added `Mistake: should fail` example is explicitly labelled and remains blocked by validation on purpose.
+
+## CURRENT LIMITS
+
+1. Res-Quill does not compute statistics from raw CSV or Excel rows.
+2. Res-Quill supports only four t-test paths today: independent Student, independent Welch, paired samples, and one sample.
+3. Res-Quill supports pasted SPSS, JASP, jamovi, and APA-style t-test output; unsupported table/prose shapes are refused.
+4. Res-Quill has no cloud storage.
+5. Res-Quill has no accounts or sign-in.
+
+App communication: all five limits are now stated on the start screen. The raw CSV/Excel boundary is also stated in the input help dialog and refusal message.

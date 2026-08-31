@@ -1,9 +1,15 @@
 # Release Checklist
 
+## One-step GitHub publish decision
+
+1. Click: `Settings -> Pages -> Build and deployment -> Source -> GitHub Actions`
+2. Run: `git push -u origin main`
+3. Live URL: `https://shir-openu.github.io/RES-QUILL/`
+
 ## GitHub Pages
 
-1. In GitHub, open `shir-openu/res-quill`.
-2. Click `Settings -> Pages -> Source = GitHub Actions`.
+1. In GitHub, open `shir-openu/RES-QUILL`.
+2. Click `Settings -> Pages -> Build and deployment -> Source -> GitHub Actions`.
 3. Confirm the local `main` branch includes `.github/workflows/deploy-web.yml`.
 4. Push `main` to `origin`.
 5. Open `Actions` and wait for `Deploy Flutter Web` to finish.

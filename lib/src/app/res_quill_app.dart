@@ -30,6 +30,11 @@ const _spreadsheetBoundaryMessage =
     'after SPSS, JASP, jamovi, or APA has already computed it. Paste that '
     'output instead.';
 
+const _currentLimitsMessage =
+    'Today: Student, Welch, paired, and one-sample t-tests only. Paste SPSS, '
+    'JASP, jamovi, or APA output. No raw CSV/Excel computation. No cloud. '
+    'No accounts.';
+
 class _PasteExample {
   const _PasteExample({
     required this.id,
@@ -1358,6 +1363,19 @@ class _BrandCard extends StatelessWidget {
                 color: colors.cardText,
                 fontSize: 16.5,
                 height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Text(
+              _currentLimitsMessage,
+              key: const Key('start-current-limits'),
+              style: TextStyle(
+                color: colors.muted,
+                fontSize: 14.5,
+                height: 1.42,
               ),
             ),
           ),

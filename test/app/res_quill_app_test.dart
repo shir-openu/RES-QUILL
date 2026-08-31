@@ -61,6 +61,18 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('start screen states current product limits', (tester) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+
+    expect(
+      find.text(
+        'Today: Student, Welch, paired, and one-sample t-tests only. Paste SPSS, JASP, jamovi, or APA output. No raw CSV/Excel computation. No cloud. No accounts.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a validation fail blocks the report screen', (tester) async {
     final semantics = tester.ensureSemantics();
     await _setDesktop(tester);
