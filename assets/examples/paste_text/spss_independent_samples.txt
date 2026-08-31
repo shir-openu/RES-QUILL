@@ -1,0 +1,17 @@
+Group Statistics
+
+              group        N       Mean    Std. Deviation   Std. Error Mean
+score         Treatment   20    82.7975      13.30169          2.97435
+              Control     20    72.0260      14.86025          3.32285
+
+Independent Samples Test
+
+                                 Levene's Test for Equality of Variances
+                                      F        Sig.
+score   Equal variances assumed     0.412     0.525
+        Equal variances not assumed
+
+                                 t-test for Equality of Means
+                                      t        df      Sig. (2-tailed)   Mean Difference
+score   Equal variances assumed     2.245     38       .031              10.77150
+        Equal variances not assumed 2.245     37.114   .031              10.77150

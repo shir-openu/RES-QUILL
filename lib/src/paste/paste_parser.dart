@@ -30,7 +30,7 @@ class TTestPasteParser {
 
     return _cannotParse(input, [
       if (_looksLikeRawData(input))
-        'Raw data table detected; paste parsing expects statistical output.',
+        'This looks like raw spreadsheet rows. Paste t-test output instead.',
       'No supported t-test output shape was found.',
     ]);
   }
@@ -79,9 +79,7 @@ class TTestPasteParser {
       ambiguities.add(
         PasteAmbiguity(
           id: 'independent.variance_row',
-          message:
-              'SPSS reported both equal-variance rows; Student versus Welch '
-              'must be chosen by the user.',
+          message: 'SPSS has both rows. Choose the row your assignment uses.',
           fieldKeys: const [
             PasteFieldKey.reportedT,
             PasteFieldKey.reportedDegreesOfFreedom,
@@ -533,9 +531,7 @@ class TTestPasteParser {
         mutableAmbiguities.add(
           const PasteAmbiguity(
             id: 'p.tail.unknown',
-            message:
-                'The p-value was found, but the pasted text does not state '
-                'whether it is one-tailed or two-tailed.',
+            message: 'Choose whether the p-value is one-tailed or two-tailed.',
             fieldKeys: [PasteFieldKey.reportedP],
           ),
         );
@@ -546,9 +542,7 @@ class TTestPasteParser {
         mutableAmbiguities.add(
           const PasteAmbiguity(
             id: 'p.tail.direction',
-            message:
-                'The text says one-sided p but does not state lower-tail or '
-                'upper-tail direction.',
+            message: 'Choose the one-tailed direction.',
             fieldKeys: [PasteFieldKey.reportedP],
           ),
         );
@@ -606,7 +600,7 @@ class TTestPasteParser {
     }
     if (_looksLikeRawData(input) && !RegExp(r'\bt\s*[\(=]').hasMatch(folded)) {
       return _cannotParse(input, const [
-        'Raw data table detected; paste parsing expects statistical output.',
+        'This looks like raw spreadsheet rows. Paste t-test output instead.',
       ]);
     }
     return null;

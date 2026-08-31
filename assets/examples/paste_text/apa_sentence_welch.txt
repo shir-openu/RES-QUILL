@@ -1,0 +1,1 @@
+An independent-samples t test showed a significant difference in exam score between the treatment group (M = 81.40, SD = 11.20, n = 25) and the control group (M = 72.40, SD = 13.90, n = 26), t(48.80) = 4.34, p < .001, 95% CI [4.83, 13.17].

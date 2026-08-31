@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:res_quill/src/app/res_quill_app.dart';
 
@@ -27,7 +26,7 @@ void main() {
       tester.getSemantics(find.byKey(const Key('area-relationships'))),
       matchesSemantics(
         label:
-            'Relationships & prediction. Correlations and regression models. Coming later.',
+            'Relationships & prediction. Correlations and regression. Later.',
         isButton: true,
         hasEnabledState: true,
         isEnabled: false,
@@ -37,14 +36,9 @@ void main() {
     await tester.tap(find.byKey(const Key('area-relationships')));
     await tester.pumpAndSettle();
 
+    expect(find.text('Paste t-test output. Get APA wording.'), findsOneWidget);
     expect(
-      find.text('Turn statistical output into a clear, report-ready result.'),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'Select the t-test path when you are entering values manually.',
-      ),
+      find.text('Use this only when typing values by hand.'),
       findsNothing,
     );
     semantics.dispose();
@@ -61,14 +55,14 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-detected-values')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Validation review'), findsOneWidget);
+    expect(find.text('Check the numbers.'), findsOneWidget);
     expect(find.text('Fail'), findsWidgets);
     final generateButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Generate report'),
     );
     expect(generateButton.onPressed, isNull);
 
-    expect(find.text('Report draft'), findsNothing);
+    expect(find.text('Copy your report.'), findsNothing);
   });
 
   testWidgets('paste ambiguity cannot proceed until resolved', (tester) async {
@@ -76,18 +70,18 @@ void main() {
     await tester.pumpWidget(const MainApp());
     await _pasteAndReview(tester, ambiguousApaPaste);
 
-    expect(find.text('Resolve the p-value tail'), findsOneWidget);
+    expect(find.text('Choose p-value direction'), findsOneWidget);
     var confirmButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Confirm detected values'),
+      find.widgetWithText(FilledButton, 'Use these values'),
     );
     expect(confirmButton.onPressed, isNull);
 
-    expect(find.text('Validation review'), findsNothing);
+    expect(find.text('Check the numbers.'), findsNothing);
 
     await tester.tap(find.byKey(const Key('paste-tail-two-tailed')));
     await tester.pumpAndSettle();
     confirmButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Confirm detected values'),
+      find.widgetWithText(FilledButton, 'Use these values'),
     );
     expect(confirmButton.onPressed, isNotNull);
 
@@ -96,33 +90,143 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('confirm-detected-values')));
     await tester.pumpAndSettle();
-    expect(find.text('Validation review'), findsOneWidget);
+    expect(find.text('Check the numbers.'), findsOneWidget);
   });
 
   testWidgets('real sample paste displays harness-matching detected values', (
     tester,
   ) async {
-    final sampleFile = File(
-      r'D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\PASTE_TEXT\spss_independent_samples.txt',
+    final sample = await tester.runAsync(
+      () => rootBundle.loadString(
+        'assets/examples/paste_text/spss_independent_samples.txt',
+      ),
     );
-    expect(sampleFile.existsSync(), isTrue);
+    expect(sample, isNotNull);
 
     await _setDesktop(tester);
     await tester.pumpWidget(const MainApp());
-    await _pasteAndReview(tester, sampleFile.readAsStringSync());
+    await _pasteAndReview(tester, sample!);
 
     expect(
-      find.text(
-        'SPSS reported both equal-variance rows; Student versus Welch must be chosen by the user.',
-      ),
+      find.text('SPSS has both rows. Choose the row your assignment uses.'),
       findsOneWidget,
     );
+    final details = find.widgetWithText(FilledButton, 'Show all found values');
+    await tester.ensureVisible(details);
+    await tester.tap(details);
+    await tester.pumpAndSettle();
     expect(find.textContaining('primary.mean = 82.7975'), findsOneWidget);
     expect(find.textContaining('secondary.mean = 72.026'), findsOneWidget);
     expect(find.textContaining('levene.p = 0.525'), findsOneWidget);
     expect(find.textContaining('reported.df = 38'), findsOneWidget);
     expect(find.textContaining('reported.df = 37.114'), findsOneWidget);
     expect(find.textContaining('reported.p = 0.031'), findsWidgets);
+  });
+
+  testWidgets('bundled examples load through the real input controls', (
+    tester,
+  ) async {
+    const examples = [
+      (
+        'SPSS table: choose Student or Welch',
+        'SPSS has both rows. Choose the row your assignment uses.',
+        'reported.df = 38',
+      ),
+      ('SPSS one-sample table', 'Check what was found', 'reported.df = 30'),
+      (
+        'SPSS .000 becomes p < .001',
+        'Check what was found',
+        'reported.p = < 0.001',
+      ),
+      (
+        'APA sentence with CI',
+        'Choose whether the p-value is one-tailed or two-tailed.',
+        'reported.df = 48.8',
+      ),
+    ];
+
+    for (final example in examples) {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await _setDesktop(tester);
+      await tester.pumpWidget(const MainApp());
+      await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
+      await tester.pumpAndSettle();
+      if (example.$1 != examples.first.$1) {
+        await tester.tap(find.byKey(const Key('paste-example-choice')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(example.$1).last);
+        await tester.pumpAndSettle();
+      }
+      final loadButton = find.descendant(
+        of: find.byKey(const Key('paste-load-example')),
+        matching: find.byType(FilledButton),
+      );
+      await tester.ensureVisible(loadButton);
+      final button = tester.widget<FilledButton>(loadButton);
+      expect(button.onPressed, isNotNull);
+      await tester.runAsync(() async {
+        button.onPressed!();
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('paste-output-box')))
+            .controller!
+            .text,
+        isNotEmpty,
+      );
+      expect(find.text(example.$2), findsOneWidget);
+      final details = find.widgetWithText(
+        FilledButton,
+        'Show all found values',
+      );
+      await tester.ensureVisible(details);
+      await tester.tap(details);
+      await tester.pumpAndSettle();
+      expect(find.textContaining(example.$3), findsWidgets);
+    }
+  });
+
+  testWidgets('spreadsheet help states the raw-data boundary', (tester) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('paste-spreadsheet-help')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CSV and Excel files'), findsOneWidget);
+    expect(
+      find.text(
+        'CSV and Excel files contain raw rows. Res-Quill checks t-test output after SPSS, JASP, jamovi, or APA has already computed it. Paste that output instead.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('pasted raw spreadsheet rows are refused clearly', (
+    tester,
+  ) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await _pasteAndReview(tester, 'Before\tAfter\n63\t69\n65\t65\n56\t62\n');
+
+    expect(find.text('Cannot use this paste'), findsOneWidget);
+    expect(
+      find.text(
+        'This looks like raw spreadsheet rows. Paste t-test output instead.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'CSV and Excel files contain raw rows. Res-Quill checks t-test output after SPSS, JASP, jamovi, or APA has already computed it. Paste that output instead.',
+      ),
+      findsOneWidget,
+    );
   });
 }
 

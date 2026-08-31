@@ -1,0 +1,9 @@
+One-Sample Statistics
+
+              N       Mean     Std. Deviation   Std. Error Mean
+protein      31     21.4000        2.54000           0.45620
+
+One-Sample Test
+                        Test Value = 20
+              t        df    Sig. (2-tailed)   Mean Difference   95% CI Lower   95% CI Upper
+protein     3.066      30         .005             1.40000          0.4674        2.3320

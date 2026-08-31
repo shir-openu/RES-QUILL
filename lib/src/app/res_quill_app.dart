@@ -21,11 +21,45 @@ enum _InputMode { paste, manual, example }
 
 enum _ButtonTone { primary, secondary, tertiary }
 
+const _spreadsheetBoundaryMessage =
+    'CSV and Excel files contain raw rows. Res-Quill checks t-test output '
+    'after SPSS, JASP, jamovi, or APA has already computed it. Paste that '
+    'output instead.';
+
+class _PasteExample {
+  const _PasteExample({required this.label, required this.assetPath});
+
+  final String label;
+  final String assetPath;
+}
+
+const _pasteExamples = [
+  _PasteExample(
+    label: 'SPSS table: choose Student or Welch',
+    assetPath: 'assets/examples/paste_text/spss_independent_samples.txt',
+  ),
+  _PasteExample(
+    label: 'SPSS one-sample table',
+    assetPath: 'assets/examples/paste_text/spss_one_sample.txt',
+  ),
+  _PasteExample(
+    label: 'SPSS .000 becomes p < .001',
+    assetPath: 'assets/examples/paste_text/spss_one_sample_p_is_000.txt',
+  ),
+  _PasteExample(
+    label: 'APA sentence with CI',
+    assetPath: 'assets/examples/paste_text/apa_sentence_welch.txt',
+  ),
+];
+
 class _MainAppState extends State<MainApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
   bool _lightTheme = false;
   _Screen _screen = _Screen.start;
   _InputMode _inputMode = _InputMode.paste;
   TTestKind _manualKind = TTestKind.independentWelch;
+  _PasteExample _selectedExample = _pasteExamples.first;
 
   final _pasteController = TextEditingController();
   final _outcomeController = TextEditingController(text: 'scores');
@@ -66,22 +100,6 @@ class _MainAppState extends State<MainApp> {
   TTestReportOutput? _report;
   String _copyStatus = '';
 
-  static const _examplePaste =
-      'Selected row: Equal variances not assumed.\n\n'
-      'Group Statistics\n'
-      'Condition    N    Mean    Std. Deviation    Std. Error Mean\n'
-      'Retrieval practice    20    81.40    5.5378    1.2382\n'
-      'Restudy               31    72.40    9.2616    1.6634\n\n'
-      'Independent Samples Test\n'
-      "Levene's Test for Equality of Variances\n"
-      'F    Sig.    t    df    Sig. (2-tailed)    Mean Difference    '
-      'Std. Error Difference    95% Confidence Interval of the Difference '
-      'Lower Upper\n'
-      'Score Equal variances assumed        4.120    .048    4.056    '
-      '49    .000    9.000    2.219    4.541    13.459\n'
-      'Score Equal variances not assumed                     4.340    '
-      '48.80    .000    9.000    2.074    4.83    13.17';
-
   @override
   void dispose() {
     _pasteController.dispose();
@@ -114,6 +132,7 @@ class _MainAppState extends State<MainApp> {
   Widget build(BuildContext context) {
     final themeMode = _lightTheme ? ThemeMode.light : ThemeMode.dark;
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: AppText.displayName,
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
@@ -242,7 +261,15 @@ class _MainAppState extends State<MainApp> {
         selectedCandidate: _selectedCandidate,
         confirmedPasteTail: _confirmedPasteTail,
         inputError: _inputError,
+        selectedExample: _selectedExample,
         onBack: _openStart,
+        onExampleChanged: (example) {
+          setState(() => _selectedExample = example);
+        },
+        onLoadExample: () {
+          _loadExample(_selectedExample);
+        },
+        onShowSpreadsheetBoundary: _showSpreadsheetBoundary,
         onManualKindChanged: (kind) {
           setState(() => _manualKind = kind);
         },
@@ -303,7 +330,27 @@ class _MainAppState extends State<MainApp> {
   }
 
   void _openExample() {
-    _pasteController.text = _examplePaste;
+    _loadExample(_selectedExample);
+  }
+
+  Future<void> _loadExample(_PasteExample example) async {
+    final String text;
+    try {
+      text = await rootBundle.loadString(example.assetPath);
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _inputError = 'Example could not load.';
+        _screen = _Screen.input;
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    _pasteController.text = text;
     setState(() {
       _inputMode = _InputMode.example;
       _screen = _Screen.input;
@@ -313,6 +360,28 @@ class _MainAppState extends State<MainApp> {
       _inputError = null;
     });
     _reviewPaste();
+  }
+
+  void _showSpreadsheetBoundary() {
+    final navigatorContext = _navigatorKey.currentContext;
+    if (navigatorContext == null) {
+      return;
+    }
+    showDialog<void>(
+      context: navigatorContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('CSV and Excel files'),
+          content: const Text(_spreadsheetBoundaryMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _openManualInput(TTestKind kind) {
@@ -415,7 +484,7 @@ class _MainAppState extends State<MainApp> {
     final tail = _confirmedPasteTail;
     if (candidate == null || tail == null) {
       setState(() {
-        _inputError = 'Choose the test row and p-value tail before validation.';
+        _inputError = 'Choose the row and p-value direction first.';
       });
       return;
     }
@@ -935,7 +1004,7 @@ class _BrandCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Statistical output interpreter',
+                      'T-test reporting helper',
                       style: TextStyle(color: colors.muted, fontSize: 16),
                     ),
                   ],
@@ -945,7 +1014,7 @@ class _BrandCard extends StatelessWidget {
           ),
           const SizedBox(height: 52),
           Text(
-            'Turn statistical output into a clear, report-ready result.',
+            'Paste t-test output. Get APA wording.',
             key: const Key('start-headline'),
             style: TextStyle(
               color: colors.cardTitle,
@@ -958,8 +1027,7 @@ class _BrandCard extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Text(
-              'Paste or enter key values, understand the result, check '
-              'inconsistencies, and generate clear academic wording.',
+              'Start with your SPSS table or APA sentence.',
               style: TextStyle(
                 color: colors.cardText,
                 fontSize: 16.5,
@@ -977,7 +1045,7 @@ class _BrandCard extends StatelessWidget {
                   onPressed: onPaste,
                 ),
                 _ActionButton(
-                  label: 'Enter values manually',
+                  label: 'Type values',
                   tone: _ButtonTone.secondary,
                   onPressed: onManual,
                 ),
@@ -1001,76 +1069,6 @@ class _BrandCard extends StatelessWidget {
               return Wrap(spacing: 12, runSpacing: 12, children: actions);
             },
           ),
-          const SizedBox(height: 60),
-          const _MicroStats(),
-        ],
-      ),
-    );
-  }
-}
-
-class _MicroStats extends StatelessWidget {
-  const _MicroStats();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 520) {
-          return const SizedBox.shrink();
-        }
-        return Row(
-          children: const [
-            Expanded(
-              child: _MicroStat(value: '3', label: 'ways to start'),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: _MicroStat(value: '0', label: 'cloud accounts'),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: _MicroStat(value: '4', label: 'current t-test paths'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _MicroStat extends StatelessWidget {
-  const _MicroStat({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _RqColors.of(context);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 82),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.42),
-        border: Border.all(color: colors.line),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: colors.title,
-              fontSize: 25,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: TextStyle(color: colors.cardText, fontSize: 12.5)),
         ],
       ),
     );
@@ -1094,7 +1092,7 @@ class _AnalysisAreaPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Or choose an analysis area',
+                'Choose what you are reporting.',
                 key: const Key('analysis-area-title'),
                 style: TextStyle(
                   color: colors.title,
@@ -1105,7 +1103,7 @@ class _AnalysisAreaPanel extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                'Only the current MVP area is active.',
+                'Only t-tests work now.',
                 style: TextStyle(color: colors.muted, fontSize: 14.5),
               ),
             ],
@@ -1118,40 +1116,40 @@ class _AnalysisAreaPanel extends StatelessWidget {
             _ChoiceCard(
               key: const Key('area-compare'),
               accent: colors.cardA,
-              status: 'Active',
+              status: 'Available',
               statusTone: _StatusTone.accepted,
-              title: 'Compare means & groups',
-              description: 't-tests, ANOVA, and non-parametric comparisons',
+              title: 't tests',
+              description: 'Independent, paired, and one-sample tests',
               bars: const [0.72, 0.46, 0.62],
               onTap: onCompare,
             ),
             _ChoiceCard(
               key: const Key('area-relationships'),
               accent: colors.cardB,
-              status: 'Coming later',
+              status: 'Later',
               statusTone: _StatusTone.accepted,
               title: 'Relationships & prediction',
-              description: 'Correlations and regression models',
+              description: 'Correlations and regression',
               bars: const [0.84, 0.58, 0.70],
               disabled: true,
             ),
             _ChoiceCard(
               key: const Key('area-categorical'),
               accent: colors.cardC,
-              status: 'Coming later',
+              status: 'Later',
               statusTone: _StatusTone.warning,
               title: 'Categorical data',
-              description: "Chi-square, Fisher's exact, and McNemar tests",
+              description: "Chi-square and Fisher's exact",
               bars: const [0.54, 0.76, 0.44],
               disabled: true,
             ),
             _ChoiceCard(
               key: const Key('area-diagnostics'),
               accent: colors.cardD,
-              status: 'Coming later',
+              status: 'Later',
               statusTone: _StatusTone.error,
               title: 'Assumptions & diagnostics',
-              description: 'Normality, equal variances, and model checks',
+              description: 'Normality and variance checks',
               bars: const [0.60, 0.38, 0.66],
               disabled: true,
             ),
@@ -1176,11 +1174,9 @@ class _SelectionScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(
-            kicker: 'Analysis area',
-            title: 'Compare means & groups',
-            body:
-                'Select the t-test path when you are entering values manually. '
-                'Paste output remains available without choosing a test first.',
+            kicker: 'Manual entry',
+            title: 'Choose your t-test.',
+            body: 'Use this only when typing values by hand.',
             backLabel: 'Back to start',
             onBack: onBack,
           ),
@@ -1190,45 +1186,37 @@ class _SelectionScreen extends StatelessWidget {
             children: [
               _ChoiceCard(
                 accent: colors.cardA,
-                status: 'Manual entry',
+                status: 'Type values',
                 statusTone: _StatusTone.accepted,
-                title: 'Independent samples - Student',
-                description:
-                    'Use when independent groups are reported with equal '
-                    'variances assumed.',
+                title: 'Equal variances assumed',
+                description: 'The SPSS Student row',
                 bars: const [0.72, 0.46, 0.62],
                 onTap: () => onSelected(TTestKind.independentStudent),
               ),
               _ChoiceCard(
                 accent: colors.cardB,
-                status: 'Manual entry',
+                status: 'Type values',
                 statusTone: _StatusTone.warning,
-                title: 'Independent samples - Welch',
-                description:
-                    'Use when independent groups are reported with equal '
-                    'variances not assumed.',
+                title: 'Equal variances not assumed',
+                description: 'The SPSS Welch row',
                 bars: const [0.84, 0.58, 0.70],
                 onTap: () => onSelected(TTestKind.independentWelch),
               ),
               _ChoiceCard(
                 accent: colors.cardC,
-                status: 'Manual entry',
+                status: 'Type values',
                 statusTone: _StatusTone.accepted,
                 title: 'Paired samples',
-                description:
-                    'Use when the same cases are measured twice or matched '
-                    'in pairs.',
+                description: 'Same people measured twice',
                 bars: const [0.54, 0.76, 0.44],
                 onTap: () => onSelected(TTestKind.pairedSamples),
               ),
               _ChoiceCard(
                 accent: colors.cardD,
-                status: 'Manual entry',
+                status: 'Type values',
                 statusTone: _StatusTone.accepted,
                 title: 'One sample',
-                description:
-                    'Use when one group mean is compared with a fixed '
-                    'reference value.',
+                description: 'One group compared with a number',
                 bars: const [0.60, 0.38, 0.66],
                 onTap: () => onSelected(TTestKind.oneSample),
               ),
@@ -1272,7 +1260,11 @@ class _InputScreen extends StatelessWidget {
     required this.selectedCandidate,
     required this.confirmedPasteTail,
     required this.inputError,
+    required this.selectedExample,
     required this.onBack,
+    required this.onExampleChanged,
+    required this.onLoadExample,
+    required this.onShowSpreadsheetBoundary,
     required this.onManualKindChanged,
     required this.onManualTailChanged,
     required this.onReviewPaste,
@@ -1313,7 +1305,11 @@ class _InputScreen extends StatelessWidget {
   final PasteTTestCandidate? selectedCandidate;
   final ReportedPValueTail? confirmedPasteTail;
   final String? inputError;
+  final _PasteExample selectedExample;
   final VoidCallback onBack;
+  final ValueChanged<_PasteExample> onExampleChanged;
+  final VoidCallback onLoadExample;
+  final VoidCallback onShowSpreadsheetBoundary;
   final ValueChanged<TTestKind> onManualKindChanged;
   final ValueChanged<ReportedPValueTail> onManualTailChanged;
   final VoidCallback onReviewPaste;
@@ -1349,7 +1345,11 @@ class _InputScreen extends StatelessWidget {
                 selectedCandidate: selectedCandidate,
                 confirmedPasteTail: confirmedPasteTail,
                 inputError: inputError,
+                selectedExample: selectedExample,
                 pasteCanConfirm: pasteCanConfirm,
+                onExampleChanged: onExampleChanged,
+                onLoadExample: onLoadExample,
+                onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
                 onReviewPaste: onReviewPaste,
                 onCandidateChanged: onCandidateChanged,
                 onPasteTailChanged: onPasteTailChanged,
@@ -1381,6 +1381,10 @@ class _InputScreen extends StatelessWidget {
                 reportedSeController: reportedSeController,
                 ciLowerController: ciLowerController,
                 ciUpperController: ciUpperController,
+                selectedExample: selectedExample,
+                onExampleChanged: onExampleChanged,
+                onLoadExample: onLoadExample,
+                onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
                 onManualKindChanged: onManualKindChanged,
                 onManualTailChanged: onManualTailChanged,
                 onValidateManual: onValidateManual,
@@ -1416,7 +1420,11 @@ class _PastePanel extends StatelessWidget {
     required this.selectedCandidate,
     required this.confirmedPasteTail,
     required this.inputError,
+    required this.selectedExample,
     required this.pasteCanConfirm,
+    required this.onExampleChanged,
+    required this.onLoadExample,
+    required this.onShowSpreadsheetBoundary,
     required this.onReviewPaste,
     required this.onCandidateChanged,
     required this.onPasteTailChanged,
@@ -1429,7 +1437,11 @@ class _PastePanel extends StatelessWidget {
   final PasteTTestCandidate? selectedCandidate;
   final ReportedPValueTail? confirmedPasteTail;
   final String? inputError;
+  final _PasteExample selectedExample;
   final bool pasteCanConfirm;
+  final ValueChanged<_PasteExample> onExampleChanged;
+  final VoidCallback onLoadExample;
+  final VoidCallback onShowSpreadsheetBoundary;
   final VoidCallback onReviewPaste;
   final ValueChanged<PasteTTestCandidate> onCandidateChanged;
   final ValueChanged<ReportedPValueTail> onPasteTailChanged;
@@ -1443,11 +1455,15 @@ class _PastePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SectionTop(
-            title: copy.pasteTitle,
-            body: copy.pasteBody,
-            pill: copy.pill,
+          _SectionTop(title: copy.pasteTitle, body: copy.pasteBody),
+          _ExampleControls(
+            keyPrefix: 'paste',
+            selectedExample: selectedExample,
+            onExampleChanged: onExampleChanged,
+            onLoadExample: onLoadExample,
+            onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
           ),
+          const SizedBox(height: 14),
           SizedBox(
             height: 416,
             child: TextField(
@@ -1466,7 +1482,7 @@ class _PastePanel extends StatelessWidget {
               ),
               decoration: const InputDecoration(
                 alignLabelWithHint: true,
-                labelText: 'Pasted statistical software output',
+                labelText: 'T-test output',
               ),
             ),
           ),
@@ -1477,7 +1493,7 @@ class _PastePanel extends StatelessWidget {
             children: [
               _ActionButton(
                 key: const Key('review-detected-fields'),
-                label: 'Review detected fields',
+                label: 'Review output',
                 tone: _ButtonTone.primary,
                 onPressed: onReviewPaste,
               ),
@@ -1528,13 +1544,22 @@ class _PasteReview extends StatelessWidget {
   Widget build(BuildContext context) {
     if (result.status == PasteParseStatus.cannotParse) {
       return _ReviewBlock(
-        title: 'Paste refused',
+        title: 'Cannot use this paste',
         children: [
           for (final reason in result.refusalReasons)
             _NoticeBox(tone: _StatusTone.error, text: reason),
+          if (result.refusalReasons.any(
+            (reason) => reason.contains('raw spreadsheet rows'),
+          )) ...[
+            const SizedBox(height: 8),
+            const _NoticeBox(
+              tone: _StatusTone.warning,
+              text: _spreadsheetBoundaryMessage,
+            ),
+          ],
           const SizedBox(height: 8),
           const Text(
-            'Use the structured fallback fields instead.',
+            'Paste t-test output, or type the values below.',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
         ],
@@ -1548,7 +1573,7 @@ class _PasteReview extends StatelessWidget {
         ) ??
         result.missingRequiredFields;
     return _ReviewBlock(
-      title: 'Detected fields require confirmation',
+      title: 'Check what was found',
       children: [
         if (result.ambiguities.isNotEmpty)
           for (final ambiguity in result.ambiguities)
@@ -1560,7 +1585,7 @@ class _PasteReview extends StatelessWidget {
               ),
             ),
         if (result.candidates.length > 1) ...[
-          const _Subhead('Choose the correct test row'),
+          const _Subhead('Choose the SPSS row'),
           RadioGroup<PasteTTestCandidate>(
             groupValue: selectedCandidate,
             onChanged: (value) {
@@ -1582,7 +1607,7 @@ class _PasteReview extends StatelessWidget {
           ),
         ],
         if (needsTail) ...[
-          const _Subhead('Resolve the p-value tail'),
+          const _Subhead('Choose p-value direction'),
           RadioGroup<ReportedPValueTail>(
             groupValue: confirmedPasteTail,
             onChanged: (value) {
@@ -1613,30 +1638,38 @@ class _PasteReview extends StatelessWidget {
           ),
         ],
         if (missingFields.isNotEmpty) ...[
-          const _Subhead('Still needed before validation'),
+          const _Subhead('Missing'),
           for (final missing in missingFields)
             _IssueRow(
               tone: _StatusTone.warning,
               field: missing.key?.label ?? 'Confirmation',
               title: missing.reason,
-              body: 'Resolve this before Res-Quill can validate the output.',
+              body: 'Fix this before continuing.',
             ),
         ],
         const SizedBox(height: 8),
         _ActionButton(
           key: const Key('confirm-detected-values'),
-          label: 'Confirm detected values',
+          label: 'Use these values',
           tone: _ButtonTone.primary,
           onPressed: canConfirm ? onConfirmPaste : null,
         ),
-        const _Subhead('Every detected field'),
-        for (final field in result.fields)
-          _IssueRow(
-            tone: _StatusTone.accepted,
-            field: field.key.label,
-            title: '${field.key.path} = ${field.describeValue()}',
-            body: 'Source text: ${field.sourceText}',
+        if (result.fields.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _Disclosure(
+            showLabel: 'Show all found values',
+            hideLabel: 'Hide all found values',
+            children: [
+              for (final field in result.fields)
+                _IssueRow(
+                  tone: _StatusTone.accepted,
+                  field: field.key.label,
+                  title: '${field.key.path} = ${field.describeValue()}',
+                  body: 'From: ${field.sourceText}',
+                ),
+            ],
           ),
+        ],
       ],
     );
   }
@@ -1679,6 +1712,10 @@ class _ManualFormPanel extends StatelessWidget {
     required this.reportedSeController,
     required this.ciLowerController,
     required this.ciUpperController,
+    required this.selectedExample,
+    required this.onExampleChanged,
+    required this.onLoadExample,
+    required this.onShowSpreadsheetBoundary,
     required this.onManualKindChanged,
     required this.onManualTailChanged,
     required this.onValidateManual,
@@ -1708,6 +1745,10 @@ class _ManualFormPanel extends StatelessWidget {
   final TextEditingController reportedSeController;
   final TextEditingController ciLowerController;
   final TextEditingController ciUpperController;
+  final _PasteExample selectedExample;
+  final ValueChanged<_PasteExample> onExampleChanged;
+  final VoidCallback onLoadExample;
+  final VoidCallback onShowSpreadsheetBoundary;
   final ValueChanged<TTestKind> onManualKindChanged;
   final ValueChanged<ReportedPValueTail> onManualTailChanged;
   final VoidCallback onValidateManual;
@@ -1720,11 +1761,15 @@ class _ManualFormPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionTop(
-            title: 'Structured fallback',
-            body: 'Use this when the pasted table does not parse cleanly.',
-            pill: 'Editable',
+          const _SectionTop(title: 'Type values'),
+          _ExampleControls(
+            keyPrefix: 'manual',
+            selectedExample: selectedExample,
+            onExampleChanged: onExampleChanged,
+            onLoadExample: onLoadExample,
+            onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
           ),
+          const SizedBox(height: 14),
           DropdownButtonFormField<TTestKind>(
             key: const Key('manual-kind-field'),
             initialValue: manualKind,
@@ -1786,7 +1831,7 @@ class _ManualFormPanel extends StatelessWidget {
               ),
             ],
           ),
-          const _Subhead('Reported test values'),
+          const _Subhead('Test numbers'),
           _FieldRow(
             children: [
               _Field(controller: reportedTController, label: 't'),
@@ -1890,7 +1935,7 @@ class _ManualFormPanel extends StatelessWidget {
           const SizedBox(height: 18),
           _ActionButton(
             key: const Key('validate-entered-values'),
-            label: 'Validate entered values',
+            label: 'Check values',
             tone: _ButtonTone.primary,
             onPressed: onValidateManual,
           ),
@@ -1922,16 +1967,17 @@ class _ValidationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
+    final failedChecks = checks
+        .where((check) => check.status == ValidationStatus.fail)
+        .toList();
     return _ScreenShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(
-            kicker: 'Step 3 of 4',
-            title: 'Validation review',
-            body:
-                'Each field keeps its source value, the product decision, and '
-                'the next action when a value cannot be used as written.',
+            kicker: 'Check',
+            title: 'Check the numbers.',
+            body: 'Fix fails before generating the report.',
             backLabel: 'Back to input',
             onBack: onBack,
           ),
@@ -1944,11 +1990,7 @@ class _ValidationScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _SectionTop(
-                      title: _parsedTitle(input),
-                      body: 'Accepted values stay visible beside failures.',
-                      pill: '3 states visible',
-                    ),
+                    _SectionTop(title: _parsedTitle(input)),
                     _ValueSummary(result: result, input: input, checks: checks),
                   ],
                 ),
@@ -1958,24 +2000,25 @@ class _ValidationScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _SectionTop(
-                      title: 'Field-by-field decisions',
-                      body: 'Problems state what is wrong and what to do next.',
-                      pill: 'Source mapped',
-                    ),
-                    for (final check in checks)
-                      _IssueRow(
-                        tone: _toneForCheck(check.status),
-                        field: check.id,
-                        title: _statusLabel(check.status),
-                        body: _checkBody(check),
-                      ),
+                    const _SectionTop(title: 'Problems to fix'),
+                    if (failedChecks.isEmpty)
+                      const _NoticeBox(
+                        tone: _StatusTone.accepted,
+                        text: 'No problems found.',
+                      )
+                    else
+                      for (final check in failedChecks)
+                        _IssueRow(
+                          tone: _toneForCheck(check.status),
+                          field: check.id,
+                          title: _statusLabel(check.status),
+                          body: _checkBody(check),
+                        ),
                     const SizedBox(height: 18),
                     if (_hasFailures)
                       const _NoticeBox(
                         tone: _StatusTone.error,
-                        text:
-                            'Report generation is blocked because validation failed.',
+                        text: 'Fix failed values before generating a report.',
                       ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -1991,12 +2034,28 @@ class _ValidationScreen extends StatelessWidget {
                               : null,
                         ),
                         _ActionButton(
-                          label: 'Edit parsed fields',
+                          label: 'Edit values',
                           tone: _ButtonTone.secondary,
                           onPressed: onBack,
                         ),
                       ],
                     ),
+                    if (checks.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _Disclosure(
+                        showLabel: 'Show all checks',
+                        hideLabel: 'Hide all checks',
+                        children: [
+                          for (final check in checks)
+                            _IssueRow(
+                              tone: _toneForCheck(check.status),
+                              field: check.id,
+                              title: _statusLabel(check.status),
+                              body: _checkBody(check),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               );
@@ -2023,21 +2082,21 @@ class _ValidationScreen extends StatelessWidget {
 
   static String _parsedTitle(TTestValidationInput? input) {
     if (input == null) {
-      return 'Parsed result';
+      return 'Your result';
     }
-    return 'Parsed ${_kindShortLabel(input.kind)} result';
+    return '${_kindShortLabel(input.kind)} result';
   }
 
   static String _checkBody(ValidationCheck check) {
     final parts = <String>[check.explanation];
     if (check.reported != null) {
-      parts.add('Reported: ${_fmt(check.reported!)}.');
+      parts.add('Given: ${_fmt(check.reported!)}.');
     }
     if (check.recomputed != null) {
-      parts.add('Recomputed: ${_fmt(check.recomputed!)}.');
+      parts.add('Calculated: ${_fmt(check.recomputed!)}.');
     }
     if (check.tolerance != null) {
-      parts.add('Tolerance: ${check.tolerance}.');
+      parts.add('Allowed difference: ${check.tolerance}.');
     }
     return parts.join(' ');
   }
@@ -2069,8 +2128,8 @@ class _ValueSummary extends StatelessWidget {
           label: 't',
           value: result == null ? 'UNKNOWN' : 't = ${_fmt(result!.t)}',
           body: result == null
-              ? 'The statistic could not be recomputed.'
-              : 'Recomputed from the confirmed test and descriptives.',
+              ? 'Could not recompute t.'
+              : 'Recomputed from your values.',
         ),
         _ValueCard(
           tone: _StatusTone.accepted,
@@ -2079,8 +2138,8 @@ class _ValueSummary extends StatelessWidget {
               ? 'UNKNOWN'
               : 'df = ${_fmt(result!.degreesOfFreedom)}',
           body: result?.kind == TTestKind.independentWelch
-              ? 'Fractional df is valid for Welch.'
-              : 'Degrees of freedom are tied to the selected test.',
+              ? 'Decimal df is valid for Welch.'
+              : 'Matches the selected test.',
         ),
         _ValueCard(
           tone: reportedP?.relation == ReportedRelation.lessThan
@@ -2091,18 +2150,90 @@ class _ValueSummary extends StatelessWidget {
               ? 'p not supplied'
               : 'p ${_relationSymbol(reportedP.relation)} ${_fmt(reportedP.value)}',
           body: reportedP?.relation == ReportedRelation.lessThan
-              ? 'A rounded zero p-value is reported as a threshold.'
-              : 'The p-value is validated against t and df when supplied.',
+              ? '.000 is shown as p < .001.'
+              : 'Checked against t and df.',
         ),
         _ValueCard(
           tone: failures > 0 ? _StatusTone.error : _StatusTone.accepted,
-          label: 'Blocking checks',
+          label: 'Fails',
           value: failures > 0 ? '$failures fail' : '0 fail',
-          body: failures > 0
-              ? 'A fail is a hard stop for report generation.'
-              : 'The report can be generated from these checks.',
+          body: failures > 0 ? 'Fix before report.' : 'Ready for report.',
         ),
       ],
+    );
+  }
+}
+
+class _ExampleControls extends StatelessWidget {
+  const _ExampleControls({
+    required this.keyPrefix,
+    required this.selectedExample,
+    required this.onExampleChanged,
+    required this.onLoadExample,
+    required this.onShowSpreadsheetBoundary,
+  });
+
+  final String keyPrefix;
+  final _PasteExample selectedExample;
+  final ValueChanged<_PasteExample> onExampleChanged;
+  final VoidCallback onLoadExample;
+  final VoidCallback onShowSpreadsheetBoundary;
+
+  @override
+  Widget build(BuildContext context) {
+    final picker = DropdownButtonFormField<_PasteExample>(
+      key: Key('$keyPrefix-example-choice'),
+      initialValue: selectedExample,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Example'),
+      items: [
+        for (final example in _pasteExamples)
+          DropdownMenuItem(
+            value: example,
+            child: Text(example.label, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          onExampleChanged(value);
+        }
+      },
+    );
+    final buttons = Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _ActionButton(
+          key: Key('$keyPrefix-load-example'),
+          label: 'Load example',
+          tone: _ButtonTone.secondary,
+          onPressed: onLoadExample,
+        ),
+        _ActionButton(
+          key: Key('$keyPrefix-spreadsheet-help'),
+          label: 'CSV or Excel?',
+          tone: _ButtonTone.tertiary,
+          onPressed: onShowSpreadsheetBoundary,
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 640) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [picker, const SizedBox(height: 10), buttons],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: picker),
+            const SizedBox(width: 10),
+            buttons,
+          ],
+        );
+      },
     );
   }
 }
@@ -2135,11 +2266,9 @@ class _ReportScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(
-            kicker: 'Step 4 of 4',
-            title: 'Report draft',
-            body:
-                'The wording uses the confirmed result, preserves censored '
-                'p values, and avoids claims the test cannot support.',
+            kicker: 'Report',
+            title: 'Copy your report.',
+            body: 'Use this wording in your assignment.',
             backLabel: 'Back to validation',
             onBack: onBack,
           ),
@@ -2151,7 +2280,6 @@ class _ReportScreen extends StatelessWidget {
                 accent: colors.cyan,
                 child: _ReportProse(
                   report: output,
-                  options: options,
                   copyStatus: copyStatus,
                   onCopy: onCopy,
                   onEdit: onEdit,
@@ -2197,14 +2325,12 @@ class _ReportScreen extends StatelessWidget {
 class _ReportProse extends StatelessWidget {
   const _ReportProse({
     required this.report,
-    required this.options,
     required this.copyStatus,
     required this.onCopy,
     required this.onEdit,
   });
 
   final TTestReportOutput? report;
-  final TTestReportOptions options;
   final String copyStatus;
   final VoidCallback onCopy;
   final VoidCallback onEdit;
@@ -2218,36 +2344,13 @@ class _ReportProse extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionTop(
-          title: 'Generated prose',
-          body: 'Readable copy column with source-consistent values.',
-          pill:
-              'Alpha ${ApaNumberFormat.probability(options.alpha, decimals: 2)}',
-        ),
+        const _SectionTop(title: 'APA wording'),
         if (output.isBlocked)
           _NoticeBox(
             tone: _StatusTone.error,
             text: output.refusalReason ?? 'Wording blocked.',
           )
         else ...[
-          _ProseBox(title: 'Formal result', reportText: output.formalResult),
-          _ProseBox(title: 'Descriptives', text: output.descriptivesSentence),
-          _ProseBox(
-            title: 'Plain-language meaning',
-            text: output.plainLanguageMeaning,
-          ),
-          _ProseBox(title: 'Effect size', text: output.effectSizeSentence),
-          if (output.roundingCautions.isNotEmpty)
-            _ListBox(
-              title: 'Rounding cautions',
-              items: output.roundingCautions,
-            ),
-          _SupportGrid(
-            supported: output.supportedClaims,
-            unsupported: output.unsupportedClaims,
-          ),
-          _EvidenceMapView(evidenceMap: output.evidenceMap),
-          const SizedBox(height: 18),
           Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -2259,11 +2362,37 @@ class _ReportProse extends StatelessWidget {
                 onPressed: onCopy,
               ),
               _ActionButton(
-                label: 'Edit and regenerate',
+                label: 'Edit values',
                 tone: _ButtonTone.secondary,
                 onPressed: onEdit,
               ),
             ],
+          ),
+          const SizedBox(height: 18),
+          _ProseBox(title: 'APA result', reportText: output.formalResult),
+          _ProseBox(title: 'Descriptives', text: output.descriptivesSentence),
+          _ProseBox(title: 'Meaning', text: output.plainLanguageMeaning),
+          _ProseBox(title: 'Effect size', text: output.effectSizeSentence),
+          if (output.roundingCautions.isNotEmpty)
+            _ListBox(
+              title: 'Rounding cautions',
+              items: output.roundingCautions,
+            ),
+          _Disclosure(
+            showLabel: 'Show claims',
+            hideLabel: 'Hide claims',
+            children: [
+              _SupportGrid(
+                supported: output.supportedClaims,
+                unsupported: output.unsupportedClaims,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _Disclosure(
+            showLabel: 'Show sources',
+            hideLabel: 'Hide sources',
+            children: [_EvidenceMapView(evidenceMap: output.evidenceMap)],
           ),
           Semantics(
             liveRegion: true,
@@ -2320,7 +2449,7 @@ class _EvidenceMapView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ReviewBlock(
-      title: 'Evidence map',
+      title: 'Sources',
       children: [
         for (final entry in evidenceMap.entries)
           _IssueRow(
@@ -2457,11 +2586,6 @@ class _ConfidenceIntervalChart extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Mean difference in ${result == null ? 'scores' : 'confirmed units'}.',
-          style: TextStyle(color: colors.cardText),
-        ),
         const SizedBox(height: 14),
         _ChartFrame(
           painter: _CiPainter(colors: colors, result: result),
@@ -2530,17 +2654,6 @@ class _DistributionChart extends StatelessWidget {
           semanticsLabel: result == null
               ? 't distribution unavailable'
               : 'Observed t ${_fmt(result!.t)} with df ${_fmt(result!.degreesOfFreedom)}.',
-        ),
-        const SizedBox(height: 10),
-        Text(
-          result == null
-              ? 'UNKNOWN'
-              : 'The observed value is plotted against the reference distribution.',
-          style: TextStyle(
-            color: colors.cardText,
-            fontSize: 13.5,
-            height: 1.45,
-          ),
         ),
       ],
     );
@@ -2977,15 +3090,10 @@ class _ScreenShell extends StatelessWidget {
 }
 
 class _SectionTop extends StatelessWidget {
-  const _SectionTop({
-    required this.title,
-    required this.body,
-    required this.pill,
-  });
+  const _SectionTop({required this.title, this.body});
 
   final String title;
-  final String body;
-  final String pill;
+  final String? body;
 
   @override
   Widget build(BuildContext context) {
@@ -3004,60 +3112,20 @@ class _SectionTop extends StatelessWidget {
                 height: 1.18,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(body, style: TextStyle(color: colors.cardText, fontSize: 15)),
+            if (body != null && body!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                body!,
+                style: TextStyle(color: colors.cardText, fontSize: 15),
+              ),
+            ],
           ],
         );
-        final badge = _ModePill(label: pill);
-        if (constraints.maxWidth < 520) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [heading, const SizedBox(height: 12), badge],
-            ),
-          );
-        }
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: heading),
-              const SizedBox(width: 14),
-              badge,
-            ],
-          ),
+          child: heading,
         );
       },
-    );
-  }
-}
-
-class _ModePill extends StatelessWidget {
-  const _ModePill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _RqColors.of(context);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 30),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.cyan.withValues(alpha: 0.14),
-        border: Border.all(color: colors.cyan.withValues(alpha: 0.40)),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: colors.title,
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }
@@ -3631,6 +3699,43 @@ class _ReviewBlock extends StatelessWidget {
   }
 }
 
+class _Disclosure extends StatefulWidget {
+  const _Disclosure({
+    required this.showLabel,
+    required this.hideLabel,
+    required this.children,
+  });
+
+  final String showLabel;
+  final String hideLabel;
+  final List<Widget> children;
+
+  @override
+  State<_Disclosure> createState() => _DisclosureState();
+}
+
+class _DisclosureState extends State<_Disclosure> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _ActionButton(
+            label: _open ? widget.hideLabel : widget.showLabel,
+            tone: _ButtonTone.tertiary,
+            onPressed: () => setState(() => _open = !_open),
+          ),
+        ),
+        if (_open) ...[const SizedBox(height: 12), ...widget.children],
+      ],
+    );
+  }
+}
+
 class _IssueRow extends StatelessWidget {
   const _IssueRow({
     required this.tone,
@@ -3822,50 +3927,37 @@ class _InputCopy {
     required this.title,
     required this.body,
     required this.pasteTitle,
-    required this.pasteBody,
-    required this.pill,
+    this.pasteBody,
   });
 
   final String kicker;
   final String title;
   final String body;
   final String pasteTitle;
-  final String pasteBody;
-  final String pill;
+  final String? pasteBody;
 
   static _InputCopy forMode(_InputMode mode, TTestKind kind) {
     return switch (mode) {
       _InputMode.paste => const _InputCopy(
-        kicker: 'Paste workflow',
-        title: 'Paste output for review',
-        body:
-            'Paste copied statistical software output here. Any detected test '
-            'must be confirmed before Res-Quill turns the values into wording.',
-        pasteTitle: 'Paste copied output',
-        pasteBody:
-            'Paste output directly without choosing a statistical test first.',
-        pill: 'Awaiting paste',
+        kicker: 'Input',
+        title: 'Paste your t-test output.',
+        body: 'Paste, load an example, then review.',
+        pasteTitle: 'Paste output',
+        pasteBody: null,
       ),
       _InputMode.example => const _InputCopy(
-        kicker: 'Worked example',
-        title: 'Worked example: Welch output',
-        body:
-            'Sample data is filled in so the review and report screens can be '
-            'inspected without typing.',
-        pasteTitle: 'Sample Welch output',
-        pasteBody: "This is sample data, not a user's own result.",
-        pill: 'Sample data',
+        kicker: 'Input',
+        title: 'Example loaded.',
+        body: 'Review it, or choose another example.',
+        pasteTitle: 'Example output',
+        pasteBody: null,
       ),
       _InputMode.manual => _InputCopy(
-        kicker: 'Manual entry',
-        title: 'Enter values: ${_kindLabel(kind)}',
-        body:
-            'Use the structured fields when you already know the t-test path '
-            'or when pasted output needs correction.',
-        pasteTitle: 'Optional source output',
-        pasteBody:
-            'Paste the source output if you want entered values to remain traceable.',
-        pill: 'Editable',
+        kicker: 'Input',
+        title: 'Type values from your t-test.',
+        body: 'Fill the numbers, then check them.',
+        pasteTitle: 'Paste output',
+        pasteBody: null,
       ),
     };
   }
@@ -4078,7 +4170,7 @@ Color _toneColor(_RqColors colors, _StatusTone tone) {
 
 String _statusToneLabel(_StatusTone tone) {
   return switch (tone) {
-    _StatusTone.accepted => 'Accepted',
+    _StatusTone.accepted => 'OK',
     _StatusTone.warning => 'Warning',
     _StatusTone.error => 'Error',
   };
@@ -4094,7 +4186,7 @@ _StatusTone _toneForCheck(ValidationStatus status) {
 
 String _statusLabel(ValidationStatus status) {
   return switch (status) {
-    ValidationStatus.pass => 'Pass',
+    ValidationStatus.pass => 'OK',
     ValidationStatus.fail => 'Fail',
     ValidationStatus.notApplicable => 'Not applicable',
   };
@@ -4102,8 +4194,8 @@ String _statusLabel(ValidationStatus status) {
 
 String _kindLabel(TTestKind kind) {
   return switch (kind) {
-    TTestKind.independentStudent => 'Independent samples - Student',
-    TTestKind.independentWelch => 'Independent samples - Welch',
+    TTestKind.independentStudent => 'Equal variances assumed',
+    TTestKind.independentWelch => 'Equal variances not assumed',
     TTestKind.pairedSamples => 'Paired samples',
     TTestKind.oneSample => 'One sample',
   };
@@ -4111,10 +4203,10 @@ String _kindLabel(TTestKind kind) {
 
 String _kindShortLabel(TTestKind kind) {
   return switch (kind) {
-    TTestKind.independentStudent => 'Student',
-    TTestKind.independentWelch => 'Welch',
-    TTestKind.pairedSamples => 'paired-samples',
-    TTestKind.oneSample => 'one-sample',
+    TTestKind.independentStudent => 'Student t-test',
+    TTestKind.independentWelch => 'Welch t-test',
+    TTestKind.pairedSamples => 'paired t-test',
+    TTestKind.oneSample => 'one-sample t-test',
   };
 }
 

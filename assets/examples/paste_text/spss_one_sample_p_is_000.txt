@@ -1,0 +1,4 @@
+One-Sample Test
+                        Test Value = 100
+              t         df    Sig. (2-tailed)   Mean Difference
+reaction    12.418     326         .000            -10.34000
