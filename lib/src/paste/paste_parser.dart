@@ -39,33 +39,8 @@ class TTestPasteParser {
     String input,
     List<_Line> lines,
   ) {
-    final rows = <_IndependentRow>[];
-    for (final line in lines) {
-      final lower = line.folded;
-      if (lower.contains('equal variances not assumed')) {
-        final row = _parseIndependentResultRow(
-          line,
-          kind: TTestKind.independentWelch,
-          phrase: 'equal variances not assumed',
-          input: input,
-        );
-        if (row != null) {
-          rows.add(row);
-        }
-      } else if (lower.contains('equal variances assumed')) {
-        final row = _parseIndependentResultRow(
-          line,
-          kind: TTestKind.independentStudent,
-          phrase: 'equal variances assumed',
-          input: input,
-        );
-        if (row != null) {
-          rows.add(row);
-        }
-      }
-    }
-
-    if (rows.isEmpty) {
+    final parsedRows = _extractSpssIndependentRows(input, lines);
+    if (parsedRows.rows.isEmpty) {
       return null;
     }
 
@@ -75,10 +50,15 @@ class TTestPasteParser {
       endMarkers: const ['independent samples test'],
       order: _GroupRowOrder.nMeanSd,
       confidence: 0.95,
+      preferLastLabelColumn: true,
     );
-    final commonFields = [...groupFields, ?_confidenceLevelField(input)];
+    final commonFields = [
+      ...groupFields,
+      ...parsedRows.leveneFields,
+      ?_confidenceLevelField(input),
+    ];
     final selectedKind = _selectedIndependentKind(input);
-    final candidates = rows.map((row) {
+    final candidates = parsedRows.rows.map((row) {
       return PasteTTestCandidate(
         kind: row.kind,
         label: row.kind == TTestKind.independentStudent
@@ -86,14 +66,16 @@ class TTestPasteParser {
             : 'Equal variances not assumed',
         fields: [...commonFields, ...row.fields],
         reportedPValueTail: row.tail,
-        selectedByText: selectedKind == row.kind || rows.length == 1,
+        selectedByText: selectedKind == row.kind || parsedRows.rows.length == 1,
         format: 'SPSS independent-samples t-test',
-        confidence: selectedKind == row.kind || rows.length == 1 ? 0.96 : 0.86,
+        confidence: selectedKind == row.kind || parsedRows.rows.length == 1
+            ? 0.96
+            : 0.86,
       );
     }).toList();
 
     final ambiguities = <PasteAmbiguity>[];
-    if (rows.length > 1 && selectedKind == null) {
+    if (parsedRows.rows.length > 1 && selectedKind == null) {
       ambiguities.add(
         PasteAmbiguity(
           id: 'independent.variance_row',
@@ -119,60 +101,137 @@ class TTestPasteParser {
     );
   }
 
-  static _IndependentRow? _parseIndependentResultRow(
-    _Line line, {
-    required TTestKind kind,
-    required String phrase,
-    required String input,
-  }) {
-    final match = RegExp(phrase, caseSensitive: false).firstMatch(line.text);
-    if (match == null) {
-      return null;
-    }
-    final tokens = _numbersInLine(line, startInLine: match.end);
-    if (tokens.length < 7) {
-      return null;
+  static _IndependentRows _extractSpssIndependentRows(
+    String input,
+    List<_Line> lines,
+  ) {
+    final rowsByKind = <TTestKind, _IndependentRow>{};
+    final leveneFields = <PasteExtractedField<Object>>[];
+    var section = _IndependentSection.unknown;
+
+    for (final line in lines) {
+      final folded = line.folded;
+      if (RegExp(
+        r'\bt[- ]?test\s+for\s+equality\b|\bequality\s+of\s+means\b',
+      ).hasMatch(folded)) {
+        section = _IndependentSection.tTest;
+      } else if (folded.contains('levene')) {
+        section = _IndependentSection.levene;
+      }
+
+      final independentLine = _independentLine(line);
+      if (independentLine == null) {
+        continue;
+      }
+      final tokens = _numbersInLine(
+        line,
+        startInLine: independentLine.match.end,
+      );
+      if (tokens.isEmpty) {
+        continue;
+      }
+
+      var resultStart = 0;
+      final studentRow = independentLine.kind == TTestKind.independentStudent;
+      final hasLevenePrefix =
+          studentRow &&
+          tokens.length >= 2 &&
+          (section == _IndependentSection.levene || tokens.length >= 9);
+      if (hasLevenePrefix) {
+        _addLeveneFields(leveneFields, tokens);
+        if (tokens.length <= 2) {
+          continue;
+        }
+        if (tokens.length >= 5) {
+          resultStart = 2;
+        }
+      }
+
+      final resultTokens = tokens.sublist(resultStart);
+      if (resultTokens.length < 3) {
+        continue;
+      }
+      rowsByKind.putIfAbsent(
+        independentLine.kind,
+        () => _IndependentRow(
+          kind: independentLine.kind,
+          fields: _independentResultFields(resultTokens),
+          tail: _tailFromContext(input, line.text),
+        ),
+      );
     }
 
-    final resultStart =
-        kind == TTestKind.independentStudent && tokens.length >= 9 ? 2 : 0;
-    if (tokens.length - resultStart < 7) {
-      return null;
-    }
-
-    final fields = <PasteExtractedField<Object>>[];
-    if (kind == TTestKind.independentStudent && tokens.length >= 9) {
-      fields
-        ..add(_numberField(PasteFieldKey.leveneF, tokens[0], confidence: 0.90))
-        ..add(
-          _numberField(
-            PasteFieldKey.leveneP,
-            tokens[1],
-            confidence: 0.90,
-            pValue: true,
-          ),
-        );
-    }
-
-    final resultTokens = tokens.sublist(resultStart);
-    fields
-      ..add(_numberField(PasteFieldKey.reportedT, resultTokens[0]))
-      ..add(
-        _numberField(PasteFieldKey.reportedDegreesOfFreedom, resultTokens[1]),
-      )
-      ..add(
-        _numberField(PasteFieldKey.reportedP, resultTokens[2], pValue: true),
-      )
-      ..add(_numberField(PasteFieldKey.reportedMeanDifference, resultTokens[3]))
-      ..add(_numberField(PasteFieldKey.reportedStandardError, resultTokens[4]))
-      ..add(_numberField(PasteFieldKey.ciLower, resultTokens[5]))
-      ..add(_numberField(PasteFieldKey.ciUpper, resultTokens[6]));
-
-    return _IndependentRow(
-      kind: kind,
-      fields: fields,
-      tail: _tailFromContext(input, line.text),
+    return _IndependentRows(
+      rows: rowsByKind.values.toList(),
+      leveneFields: leveneFields,
     );
+  }
+
+  static _IndependentLine? _independentLine(_Line line) {
+    final notAssumed = RegExp(
+      r'equal\s+variances\s+not\s+assumed',
+      caseSensitive: false,
+    ).firstMatch(line.text);
+    if (notAssumed != null) {
+      return _IndependentLine(
+        kind: TTestKind.independentWelch,
+        match: notAssumed,
+      );
+    }
+    final assumed = RegExp(
+      r'equal\s+variances\s+assumed',
+      caseSensitive: false,
+    ).firstMatch(line.text);
+    if (assumed != null) {
+      return _IndependentLine(
+        kind: TTestKind.independentStudent,
+        match: assumed,
+      );
+    }
+    return null;
+  }
+
+  static void _addLeveneFields(
+    List<PasteExtractedField<Object>> fields,
+    List<_NumericToken> tokens,
+  ) {
+    if (!fields.any((field) => field.key == PasteFieldKey.leveneF)) {
+      fields.add(
+        _numberField(PasteFieldKey.leveneF, tokens[0], confidence: 0.90),
+      );
+    }
+    if (!fields.any((field) => field.key == PasteFieldKey.leveneP)) {
+      fields.add(
+        _numberField(
+          PasteFieldKey.leveneP,
+          tokens[1],
+          confidence: 0.90,
+          pValue: true,
+        ),
+      );
+    }
+  }
+
+  static List<PasteExtractedField<Object>> _independentResultFields(
+    List<_NumericToken> tokens,
+  ) {
+    final fields = <PasteExtractedField<Object>>[
+      _numberField(PasteFieldKey.reportedT, tokens[0]),
+      _numberField(PasteFieldKey.reportedDegreesOfFreedom, tokens[1]),
+      _numberField(PasteFieldKey.reportedP, tokens[2], pValue: true),
+    ];
+    if (tokens.length >= 4) {
+      fields.add(_numberField(PasteFieldKey.reportedMeanDifference, tokens[3]));
+    }
+    if (tokens.length >= 5) {
+      fields.add(_numberField(PasteFieldKey.reportedStandardError, tokens[4]));
+    }
+    if (tokens.length >= 7) {
+      fields
+        ..add(_numberField(PasteFieldKey.ciLower, tokens[5]))
+        ..add(_numberField(PasteFieldKey.ciUpper, tokens[6]));
+    }
+    return fields;
   }
 
   static TTestPasteParseResult? _parseSpssPaired(
@@ -275,16 +334,23 @@ class TTestPasteParser {
           continue;
         }
         final tokens = _dataNumbersInLine(line);
-        if (tokens.length < 6) {
+        if (tokens.length < 3) {
           continue;
         }
         resultFields
           ..add(_numberField(PasteFieldKey.reportedT, tokens[0]))
           ..add(_numberField(PasteFieldKey.reportedDegreesOfFreedom, tokens[1]))
-          ..add(_numberField(PasteFieldKey.reportedP, tokens[2], pValue: true))
-          ..add(_numberField(PasteFieldKey.reportedMeanDifference, tokens[3]))
-          ..add(_numberField(PasteFieldKey.ciLower, tokens[4]))
-          ..add(_numberField(PasteFieldKey.ciUpper, tokens[5]));
+          ..add(_numberField(PasteFieldKey.reportedP, tokens[2], pValue: true));
+        if (tokens.length >= 4) {
+          resultFields.add(
+            _numberField(PasteFieldKey.reportedMeanDifference, tokens[3]),
+          );
+        }
+        if (tokens.length >= 6) {
+          resultFields
+            ..add(_numberField(PasteFieldKey.ciLower, tokens[4]))
+            ..add(_numberField(PasteFieldKey.ciUpper, tokens[5]));
+        }
         break;
       }
     }
@@ -570,6 +636,7 @@ class TTestPasteParser {
     required double confidence,
     bool dropPairOrdinal = false,
     bool captureFourthAsStandardError = false,
+    bool preferLastLabelColumn = false,
   }) {
     final start = _lineIndexContainingAny(lines, startMarkers);
     if (start == -1) {
@@ -589,7 +656,11 @@ class TTestPasteParser {
       if (tokens.length < 3) {
         continue;
       }
-      final label = _labelBefore(line, tokens.first);
+      final label = _labelBefore(
+        line,
+        tokens.first,
+        preferLastColumn: preferLastLabelColumn,
+      );
       if (label == null) {
         continue;
       }
@@ -671,15 +742,32 @@ class TTestPasteParser {
 
   static List<_GroupRow> _parenthesizedGroupStats(String input) {
     final pattern = RegExp(
-      '([A-Za-z][^()\\n;]{0,70}?)\\s*\\(\\s*n\\s*=\\s*'
-      '($_numberPattern)\\s*,\\s*(?:m|mean)\\s*=\\s*'
-      '($_numberPattern)\\s*,\\s*(?:sd|std\\.?\\s*deviation)\\s*=\\s*'
-      '($_numberPattern)\\s*\\)',
+      '([A-Za-z][^()\\n;]{0,140}?)\\s*\\(([^()\\n]{0,180})\\)',
+      caseSensitive: false,
+    );
+    final nPattern = RegExp(
+      '\\bn\\s*=\\s*($_numberPattern)',
+      caseSensitive: false,
+    );
+    final meanPattern = RegExp(
+      '\\b(?:m|mean)\\s*=\\s*($_numberPattern)',
+      caseSensitive: false,
+    );
+    final sdPattern = RegExp(
+      '\\b(?:sd|std\\.?\\s*deviation)\\s*=\\s*($_numberPattern)',
       caseSensitive: false,
     );
     final rows = <_GroupRow>[];
     for (final match in pattern.allMatches(input)) {
-      final label = _trimmedSpan(
+      final body = match.group(2)!;
+      final n = nPattern.firstMatch(body);
+      final mean = meanPattern.firstMatch(body);
+      final sd = sdPattern.firstMatch(body);
+      if (n == null || mean == null || sd == null) {
+        continue;
+      }
+      final bodyStart = match.start + match.group(0)!.indexOf(body);
+      final label = _apaGroupLabelSpan(
         input,
         match.start,
         match.start + match.group(1)!.length,
@@ -688,9 +776,9 @@ class TTestPasteParser {
         _GroupRow(
           label: label,
           tokens: [
-            _tokenFromMatch(input, match, 2),
-            _tokenFromMatch(input, match, 3),
-            _tokenFromMatch(input, match, 4),
+            _tokenFromSegmentMatch(bodyStart, n, 1),
+            _tokenFromSegmentMatch(bodyStart, mean, 1),
+            _tokenFromSegmentMatch(bodyStart, sd, 1),
           ],
         ),
       );
@@ -699,6 +787,40 @@ class TTestPasteParser {
       }
     }
     return rows;
+  }
+
+  static _TextSpan _apaGroupLabelSpan(String input, int start, int end) {
+    final raw = input.substring(start, end);
+    var sourceStart = 0;
+    var sourceEnd = raw.length;
+    while (sourceStart < sourceEnd && raw[sourceStart].trim().isEmpty) {
+      sourceStart += 1;
+    }
+    while (sourceEnd > sourceStart && raw[sourceEnd - 1].trim().isEmpty) {
+      sourceEnd -= 1;
+    }
+    final trimmed = raw.substring(sourceStart, sourceEnd);
+    final markerMatches = RegExp(
+      r'\b(?:between|and)\s+',
+      caseSensitive: false,
+    ).allMatches(trimmed).toList();
+    if (markerMatches.isNotEmpty) {
+      final marker = markerMatches.last;
+      sourceStart += marker.end;
+      while (sourceStart < sourceEnd && raw[sourceStart].trim().isEmpty) {
+        sourceStart += 1;
+      }
+    }
+    final sourceText = raw.substring(sourceStart, sourceEnd);
+    final value = _cleanLabel(
+      sourceText.replaceFirst(RegExp(r'^the\s+', caseSensitive: false), ''),
+    );
+    return _TextSpan(
+      value: value,
+      sourceText: sourceText,
+      start: start + sourceStart,
+      end: start + sourceEnd,
+    );
   }
 
   static List<_GroupRow> _looseGroupRows(List<_Line> lines) {
@@ -1145,7 +1267,25 @@ class TTestPasteParser {
     );
   }
 
-  static _TextSpan? _labelBefore(_Line line, _NumericToken firstToken) {
+  static _NumericToken _tokenFromSegmentMatch(
+    int segmentStart,
+    RegExpMatch match,
+    int group,
+  ) {
+    final sourceText = match.group(group)!;
+    final groupStart = match.group(0)!.indexOf(sourceText);
+    return _NumericToken(
+      sourceText: sourceText,
+      start: segmentStart + match.start + groupStart,
+      end: segmentStart + match.start + groupStart + sourceText.length,
+    );
+  }
+
+  static _TextSpan? _labelBefore(
+    _Line line,
+    _NumericToken firstToken, {
+    bool preferLastColumn = false,
+  }) {
     final endInLine = firstToken.start - line.start;
     final originalRaw = line.text.substring(0, endInLine);
     final pairPrefix = RegExp(
@@ -1156,27 +1296,35 @@ class TTestPasteParser {
     final raw = originalRaw.substring(prefixWidth);
     final startTrim = raw.length - raw.trimLeft().length;
     final endTrim = raw.trimRight().length;
-    final value = raw.trim();
+    var sourceStart = startTrim;
+    var sourceEnd = endTrim;
+    if (preferLastColumn) {
+      final trimmed = raw.substring(startTrim, endTrim);
+      final separators = RegExp(
+        r'\t+|[ \u00a0]{2,}',
+      ).allMatches(trimmed).toList();
+      if (separators.isNotEmpty) {
+        final last = separators.last;
+        var candidateStart = startTrim + last.end;
+        while (candidateStart < sourceEnd &&
+            raw[candidateStart].trim().isEmpty) {
+          candidateStart += 1;
+        }
+        if (candidateStart < sourceEnd) {
+          sourceStart = candidateStart;
+        }
+      }
+    }
+    final sourceText = raw.substring(sourceStart, sourceEnd);
+    final value = sourceText.trim();
     if (value.isEmpty) {
       return null;
     }
     return _TextSpan(
       value: _cleanLabel(value),
-      sourceText: raw.substring(startTrim, endTrim),
-      start: line.start + prefixWidth + startTrim,
-      end: line.start + prefixWidth + endTrim,
-    );
-  }
-
-  static _TextSpan _trimmedSpan(String input, int start, int end) {
-    final source = input.substring(start, end);
-    final left = source.length - source.trimLeft().length;
-    final right = source.trimRight().length;
-    return _TextSpan(
-      value: _cleanLabel(source.substring(left, right)),
-      sourceText: source.substring(left, right),
-      start: start + left,
-      end: start + right,
+      sourceText: sourceText,
+      start: line.start + prefixWidth + sourceStart,
+      end: line.start + prefixWidth + sourceEnd,
     );
   }
 
@@ -1471,6 +1619,22 @@ class _GroupRow {
 
   final _TextSpan label;
   final List<_NumericToken> tokens;
+}
+
+enum _IndependentSection { unknown, levene, tTest }
+
+class _IndependentLine {
+  const _IndependentLine({required this.kind, required this.match});
+
+  final TTestKind kind;
+  final RegExpMatch match;
+}
+
+class _IndependentRows {
+  const _IndependentRows({required this.rows, required this.leveneFields});
+
+  final List<_IndependentRow> rows;
+  final List<PasteExtractedField<Object>> leveneFields;
 }
 
 class _IndependentRow {

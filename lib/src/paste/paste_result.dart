@@ -242,7 +242,7 @@ class PasteTTestCandidate {
     if (field(PasteFieldKey.reportedP) != null && pTail == null) {
       missing.add(
         const PasteMissingField(
-          key: null,
+          key: PasteFieldKey.reportedP,
           reason: 'reported p tail is unknown',
         ),
       );
@@ -250,7 +250,7 @@ class PasteTTestCandidate {
     if (pTail == ReportedPValueTail.oneTailedObservedDirection) {
       missing.add(
         const PasteMissingField(
-          key: null,
+          key: PasteFieldKey.reportedP,
           reason: 'one-sided p direction requires confirmation',
         ),
       );
