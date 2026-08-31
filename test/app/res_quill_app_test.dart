@@ -238,13 +238,13 @@ void main() {
     );
     expect(
       find.text(
-        "Student row. Levene's Sig. = 0.525; with .05 rule, SPSS points to this row.",
+        "Student row. Levene's Sig. = 0.675; with .05 rule, SPSS points to this row.",
       ),
       findsOneWidget,
     );
     expect(
       find.text(
-        "Welch row. Levene's Sig. = 0.525; with .05 rule, use this only if assigned.",
+        "Welch row. Levene's Sig. = 0.675; with .05 rule, use this only if assigned.",
       ),
       findsOneWidget,
     );
@@ -260,10 +260,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('primary.mean = 82.7975'), findsOneWidget);
     expect(find.textContaining('secondary.mean = 72.026'), findsOneWidget);
-    expect(find.textContaining('levene.p = 0.525'), findsOneWidget);
+    expect(find.textContaining('levene.p = 0.675'), findsOneWidget);
     expect(find.textContaining('reported.df = 38'), findsOneWidget);
-    expect(find.textContaining('reported.df = 37.114'), findsOneWidget);
-    expect(find.textContaining('reported.p = 0.031'), findsWidgets);
+    expect(find.textContaining('reported.df = 37.543'), findsOneWidget);
+    expect(find.textContaining('reported.p = 0.021'), findsWidgets);
   });
 
   testWidgets('bundled examples load through the real input controls', (
@@ -280,7 +280,12 @@ void main() {
       (
         'apa-sentence-ci',
         'Choose whether the p-value is one-tailed or two-tailed.',
-        'reported.df = 48.8',
+        'reported.df = 47.57',
+      ),
+      (
+        'intentional-mistake',
+        'Choose whether the p-value is one-tailed or two-tailed.',
+        'reported.t = 4.34',
       ),
     ];
 
@@ -320,6 +325,51 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining(example.$3), findsWidgets);
     }
+  });
+
+  testWidgets('intentional bundled mistake blocks report generation', (
+    tester,
+  ) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
+    await tester.pumpAndSettle();
+    final loadButton = find.descendant(
+      of: find.byKey(const Key('paste-example-intentional-mistake')),
+      matching: find.byType(FilledButton),
+    );
+    await tester.ensureVisible(loadButton);
+    final button = tester.widget<FilledButton>(loadButton);
+    expect(button.onPressed, isNotNull);
+    await tester.runAsync(() async {
+      button.onPressed!();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Choose whether the p-value is one-tailed or two-tailed.'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.byKey(const Key('paste-tail-two-tailed')));
+    await tester.tap(find.byKey(const Key('paste-tail-two-tailed')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('confirm-detected-values')),
+    );
+    await tester.tap(find.byKey(const Key('confirm-detected-values')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Check the numbers.'), findsOneWidget);
+    expect(
+      find.text('Fix failed rows before generating the report.'),
+      findsOneWidget,
+    );
+    expect(find.text('Fail'), findsWidgets);
+    final generateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Generate report'),
+    );
+    expect(generateButton.onPressed, isNull);
   });
 
   testWidgets('spreadsheet help states the raw-data boundary', (tester) async {

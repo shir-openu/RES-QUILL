@@ -8,10 +8,10 @@ Independent Samples Test
 
                                  Levene's Test for Equality of Variances
                                       F        Sig.
-score   Equal variances assumed     0.412     0.525
+score   Equal variances assumed     0.179     0.675
         Equal variances not assumed
 
                                  t-test for Equality of Means
                                       t        df      Sig. (2-tailed)   Mean Difference
-score   Equal variances assumed     2.245     38       .031              10.77150
-        Equal variances not assumed 2.245     37.114   .031              10.77150
+score   Equal variances assumed     2.415     38       0.021            10.77150
+        Equal variances not assumed 2.415     37.543   0.021            10.77150

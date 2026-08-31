@@ -69,6 +69,12 @@ const _pasteExamples = [
     controlLabel: 'APA sentence with CI',
     assetPath: 'assets/examples/paste_text/apa_sentence_welch.txt',
   ),
+  _PasteExample(
+    id: 'intentional-mistake',
+    label: 'Example with a mistake in it',
+    controlLabel: 'Mistake: should fail',
+    assetPath: 'assets/examples/paste_text/intentional_mistake_welch.txt',
+  ),
 ];
 
 class _MainAppState extends State<MainApp> with TickerProviderStateMixin {

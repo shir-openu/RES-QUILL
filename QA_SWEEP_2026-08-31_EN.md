@@ -1,12 +1,15 @@
 # QA sweep 2026-08-31
 
 Scope: pre-publish QA for the Flutter Res-Quill app. I did not push.
+T34 update recorded on 2026-09-01 after the corrected sample files were resynced.
 
 ## Summary verdict
 
-Ready for Shir to publish as a preview: NO.
+Ready for Shir to publish as a preview: YES.
 
-The app code now passes format, analysis, the full 104-test suite, the capture harness, the sample UI harness, and the keyboard harness. The remaining blocker is content/data: two bundled/sample paste texts are internally inconsistent and therefore block report generation in the real app. They should either be corrected or deliberately relabeled as failing validation examples before publishing.
+The app code passes format verification, analysis, the full 105-test suite, the capture harness, the expanded sample UI harness, and the keyboard harness. The two previously blocking paste samples now reach generated reports in the real app with statistics that follow from their own descriptives. No remaining publish blocker was found in this sweep.
+
+Expected non-report outcomes remain: the three refusal files refuse by design, and `spss_one_sample_p_is_000.txt` still stops at missing required descriptives while preserving the required `.000` to `p < .001` handling. That is not a preview blocker.
 
 ## Code changes made during sweep
 
@@ -18,6 +21,8 @@ The app code now passes format, analysis, the full 104-test suite, the capture h
 | Disabled report button | Added a screen-reader hint to the disabled Generate report button explaining the first blocking validation row. |
 | Guide keyboard behavior | The guide now traps Tab focus inside the guide controls and Escape closes it. |
 | Card focus | Removed duplicate keyboard stops from tappable cards while keeping the visible focus border. |
+| Sample assets | Resynced the bundled paste assets from `SAMPLE_UPLOADS\PASTE_TEXT`; all seven source files now match byte-for-byte. |
+| Intentional failing example | Added `assets/examples/paste_text/intentional_mistake_welch.txt` and the app button `Mistake: should fail`; validation blocks it by design. |
 
 ## Job 1: sample paste files through the real app
 
@@ -27,11 +32,11 @@ Raw harness output: `build/qa_sweep/app_samples.json`.
 
 | File | App detection | User confirmation asked | Final app outcome and stats | Matches `claude_check_paste.dart` | Matches `EXPECTED_VALUES.md` | Defect |
 | --- | --- | --- | --- | --- | --- | --- |
-| `apa_sentence_welch.txt` | `needsConfirmation`; independent Welch; df `48.80` survived; p parsed as `< 0.001`. | `Choose whether the p-value is one-tailed or two-tailed.` I chose Two-tailed. | Report blocked by validation. Recomputed from displayed descriptives: t `2.550819`, df `47.567979`, p `0.014022`, 95% CI `[1.904254, 16.095746]`, Cohen's d `0.713018`, Hedges' g `0.702039`. | YES | Parser expectation is met, but the pasted sentence is internally inconsistent with its own descriptives. | YES |
+| `apa_sentence_welch.txt` | `needsConfirmation`; independent Welch; df `47.57`; p parsed as `0.014`; CI parsed as `[1.90, 16.10]`. | `Choose whether the p-value is one-tailed or two-tailed.` I chose Two-tailed. | Report generated. Final app stats: t `2.550819`, df `47.567979`, p `0.014022`, 95% CI `[1.904254, 16.095746]`, Cohen's d `0.713018`, Hedges' g `0.702039`. | YES | YES. Matches corrected `EXPECTED_VALUES.md`. | NO |
 | `refuse_anova_table.txt` | `cannotParse`; no t-test candidate. | None. | Refused. Final stats: UNKNOWN. | YES | YES, out of scope. | NO |
 | `refuse_empty.txt` | `cannotParse`; no t-test candidate. | None. | Refused. Final stats: UNKNOWN. | YES | YES, empty input refusal. | NO |
 | `refuse_prose.txt` | `cannotParse`; no t-test candidate. | None. | Refused. Final stats: UNKNOWN. | YES | YES, no supported output shape. | NO |
-| `spss_independent_samples.txt` | `needsConfirmation`; both SPSS variance rows detected; no selected kind until user chooses. | `SPSS has both rows. Choose the row your assignment uses.` Also missing CI confidence level. I chose Student because Levene's Sig. = `0.525` and used `.95` in typed fields. | Report blocked by validation. Recomputed Student result from displayed descriptives: t `2.415347`, df `38`, p `0.020638`, 95% CI `[1.743497, 19.799503]`, Cohen's d `0.763800`, Hedges' g `0.748608`. | YES | It asks as expected, but reported t `2.245` conflicts with the expected/descriptive values. | YES |
+| `spss_independent_samples.txt` | `needsConfirmation`; both SPSS variance rows detected; no selected kind until user chooses. Parsed Levene display values: F `0.179`, p `0.675`. | `SPSS has both rows. Choose the row your assignment uses.` Also missing CI confidence level. I chose Student because Levene's Sig. = `0.675` and used `.95` in typed fields. | Report generated. Student final app stats: t `2.415347`, df `38`, p `0.020638`, 95% CI `[1.743497, 19.799503]`, Cohen's d `0.763800`, Hedges' g `0.748608`. Additional app pass chose Welch and generated t `2.415347`, df `37.542856`, p `0.020700`, 95% CI `[1.739885, 19.803115]`. | YES | YES. Matches corrected `EXPECTED_VALUES.md`. | NO |
 | `spss_one_sample.txt` | `confident`; one-sample t test. | None beyond reviewing detected values. | Report generated. Final app stats: t `3.068846`, df `30`, p `0.004529`, 95% CI `[0.468320, 2.331680]`, Cohen's d `0.551181`, Hedges' g `0.537266`. | YES | YES. Rounded display drift no longer blocks this ordinary SPSS output. | NO |
 | `spss_one_sample_p_is_000.txt` | `needsConfirmation`; one-sample; p parsed as `< 0.001`, source `.000`. | Missing Group 1 n, Group 1 mean, Group 1 SD, and CI confidence level. | Blocked at missing required fields. Final stats: UNKNOWN. | YES | YES for the stated `.000` requirement. This file is not sufficient to generate a report. | NO |
 
@@ -43,7 +48,9 @@ Exact refusal text shown for the three refusal files:
 | `refuse_empty.txt` | `Input is empty.` |
 | `refuse_prose.txt` | `No supported t-test output shape was found.` |
 
-Mismatches counted: 2.
+Mismatches counted: 0.
+
+Source-to-bundled asset sync was confirmed byte-for-byte by reading every source and destination file as bytes, comparing length and every byte position, and recording matching SHA-256 hashes for all seven source paste files.
 
 ## Job 2: light mode and 390px
 
@@ -124,18 +131,16 @@ The same related-only treatment was applied to t when it is only involved in a p
 
 | Command | Result |
 | --- | --- |
-| `C:\flutter\bin\dart.bat format lib\src\app\res_quill_app.dart lib\src\app\res_quill_guide.dart lib\src\stats\validation.dart test\app\res_quill_app_test.dart tool\verify\qa_sweep_app_test.dart tool\verify\qa_keyboard_test.dart` | PASS |
-| `C:\flutter\bin\flutter.bat analyze` | PASS, no issues found. |
-| `C:\flutter\bin\flutter.bat test` | PASS, 104 pass / 0 fail. |
-| `C:\flutter\bin\dart.bat run tool\verify\claude_check_paste.dart` | PASS, all seven samples parsed/refused as recorded above. |
-| `C:\flutter\bin\flutter.bat test tool\verify\qa_sweep_app_test.dart --reporter expanded` | PASS, 7 samples driven through the app. |
-| `C:\flutter\bin\flutter.bat test tool\verify\qa_keyboard_test.dart --reporter expanded` | PASS, tab order and guide behavior recorded. |
-| `C:\flutter\bin\flutter.bat test --update-goldens tool\verify\capture_app_screens_test.dart` | PASS, final captures recut with font harness. |
+| `dart format --set-exit-if-changed lib test tool` after prepending `C:\flutter\bin` to PATH | PASS, 32 files checked / 0 changed. |
+| `flutter analyze` after prepending `C:\flutter\bin` to PATH | PASS, no issues found. |
+| `flutter test --reporter expanded` after prepending `C:\flutter\bin` to PATH | PASS, 105 pass / 0 fail. |
+| `dart run tool\verify\claude_check_paste.dart` after prepending `C:\flutter\bin` to PATH | PASS, all seven source samples parsed/refused as recorded above. |
+| `flutter test tool\verify\qa_sweep_app_test.dart --reporter expanded` after prepending `C:\flutter\bin` to PATH | PASS, seven source samples driven through the app plus a separate SPSS Welch-row report pass. |
+| `flutter test tool\verify\qa_keyboard_test.dart --reporter expanded` after prepending `C:\flutter\bin` to PATH | PASS, tab order and guide behavior recorded. |
+| `flutter test --update-goldens tool\verify\capture_app_screens_test.dart --reporter expanded` after prepending `C:\flutter\bin` to PATH | PASS, final captures recut; input captures changed because the SPSS sample values changed. |
 
 ## Blocking items before preview publish
 
-1. Correct or intentionally relabel `spss_independent_samples.txt`. Its displayed descriptives recompute to Student t `2.415347`, not the reported t `2.245`; the real app blocks the report.
-2. Correct or intentionally relabel `apa_sentence_welch.txt`. Its displayed descriptives recompute to t `2.550819` and df `47.567979`, not the reported t `4.34` and df `48.80`; the real app blocks the report.
-3. The bundled app assets mirror those two sample texts, so this is not only an external QA corpus issue.
+None found in this T34 rerun.
 
-If those two files are meant to be failing examples, the UI/sample labels should say that explicitly before publishing. If they are meant to be happy-path examples, they need corrected values.
+The two previous blockers are cleared. `spss_independent_samples.txt` and `apa_sentence_welch.txt` now generate reports from the real app, and the newly added `Mistake: should fail` example is explicitly labelled and remains blocked by validation on purpose.

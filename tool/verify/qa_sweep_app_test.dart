@@ -188,6 +188,65 @@ void main() {
       '${outDir.path}/app_samples.json',
     ).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(results));
   });
+
+  testWidgets('QA sweep confirms the SPSS Welch row reaches report', (
+    tester,
+  ) async {
+    const name = 'spss_independent_samples.txt';
+    final file = File('$_sampleDir\\$name');
+    final text = file.readAsStringSync();
+    final parsed = TTestPasteParser.parse(text);
+    final resolution = _resolutionFor(
+      name,
+      parsed,
+      preferredKind: TTestKind.independentWelch,
+    )!;
+
+    await _pumpApp(tester);
+    await _pasteAndReview(tester, text);
+    final row = find.widgetWithText(
+      RadioListTile<PasteTTestCandidate>,
+      resolution.candidate.label,
+    );
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await _settle(tester);
+    await tester.ensureVisible(
+      find.byKey(const Key('validate-entered-values')),
+    );
+    await tester.tap(find.byKey(const Key('validate-entered-values')));
+    await _settle(tester);
+    expect(find.text('Check the numbers.'), findsOneWidget);
+
+    final checks = TTestValidator.validate(resolution.validationInput);
+    final failures = checks
+        .where((check) => check.status == ValidationStatus.fail)
+        .toList();
+    expect(
+      failures,
+      isEmpty,
+      reason: failures.map((check) => check.explanation).join('\n'),
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('generate-report')));
+    await tester.tap(find.byKey(const Key('generate-report')));
+    await _settle(tester);
+    expect(find.text('Copy your report.'), findsOneWidget);
+
+    final result = TTestValidator.resultFromInput(resolution.validationInput);
+    final outDir = Directory('build/qa_sweep');
+    outDir.createSync(recursive: true);
+    File('${outDir.path}/app_spss_welch.json').writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert({
+        'file': name,
+        'selectedRow': 'Equal variances not assumed',
+        'uiStop': 'report_generated',
+        'final': _finalStats(result, resolution.reportTail),
+        'validationFailures': <String>[],
+      }),
+    );
+    _checkNoFlutterException(tester, name);
+  });
 }
 
 Future<void> _pumpApp(WidgetTester tester) async {
@@ -221,17 +280,27 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
 }
 
-_QaResolution? _resolutionFor(String fileName, TTestPasteParseResult parsed) {
+_QaResolution? _resolutionFor(
+  String fileName,
+  TTestPasteParseResult parsed, {
+  TTestKind? preferredKind,
+}) {
   if (parsed.candidates.isEmpty) {
     return null;
   }
 
-  final candidate = switch (fileName) {
-    'spss_independent_samples.txt' => parsed.candidates.singleWhere(
+  final PasteTTestCandidate? candidate;
+  if (preferredKind != null) {
+    candidate = parsed.candidates.singleWhere(
+      (item) => item.kind == preferredKind,
+    );
+  } else if (fileName == 'spss_independent_samples.txt') {
+    candidate = parsed.candidates.singleWhere(
       (item) => item.kind == TTestKind.independentStudent,
-    ),
-    _ => parsed.candidates.length == 1 ? parsed.candidates.single : null,
-  };
+    );
+  } else {
+    candidate = parsed.candidates.length == 1 ? parsed.candidates.single : null;
+  }
   if (candidate == null) {
     return null;
   }

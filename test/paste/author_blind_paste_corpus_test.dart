@@ -48,25 +48,25 @@ void main() {
           PasteFieldKey.secondaryStandardDeviation,
           14.86025,
         );
-        _expectNumber(candidate.fields, PasteFieldKey.leveneF, 0.412);
-        _expectNumber(candidate.fields, PasteFieldKey.leveneP, 0.525);
+        _expectNumber(candidate.fields, PasteFieldKey.leveneF, 0.179);
+        _expectNumber(candidate.fields, PasteFieldKey.leveneP, 0.675);
       }
 
-      _expectNumber(student.fields, PasteFieldKey.reportedT, 2.245);
+      _expectNumber(student.fields, PasteFieldKey.reportedT, 2.415);
       _expectNumber(student.fields, PasteFieldKey.reportedDegreesOfFreedom, 38);
-      _expectNumber(student.fields, PasteFieldKey.reportedP, 0.031);
+      _expectNumber(student.fields, PasteFieldKey.reportedP, 0.021);
       _expectNumber(
         student.fields,
         PasteFieldKey.reportedMeanDifference,
         10.77150,
       );
-      _expectNumber(welch.fields, PasteFieldKey.reportedT, 2.245);
+      _expectNumber(welch.fields, PasteFieldKey.reportedT, 2.415);
       _expectNumber(
         welch.fields,
         PasteFieldKey.reportedDegreesOfFreedom,
-        37.114,
+        37.543,
       );
-      _expectNumber(welch.fields, PasteFieldKey.reportedP, 0.031);
+      _expectNumber(welch.fields, PasteFieldKey.reportedP, 0.021);
       _expectNumber(
         welch.fields,
         PasteFieldKey.reportedMeanDifference,
@@ -174,18 +174,18 @@ void main() {
         PasteFieldKey.secondaryStandardDeviation,
         13.90,
       );
-      _expectNumber(candidate.fields, PasteFieldKey.reportedT, 4.34);
+      _expectNumber(candidate.fields, PasteFieldKey.reportedT, 2.55);
       _expectNumber(
         candidate.fields,
         PasteFieldKey.reportedDegreesOfFreedom,
-        48.80,
+        47.57,
       );
       final p = _number(candidate.fields, PasteFieldKey.reportedP);
-      expect(p.value, 0.001);
-      expect(p.relation, ReportedRelation.lessThan);
+      expect(p.value, 0.014);
+      expect(p.relation, ReportedRelation.equalRounded);
       expect(p.spssRoundedZeroP, isFalse);
-      _expectNumber(candidate.fields, PasteFieldKey.ciLower, 4.83);
-      _expectNumber(candidate.fields, PasteFieldKey.ciUpper, 13.17);
+      _expectNumber(candidate.fields, PasteFieldKey.ciLower, 1.90);
+      _expectNumber(candidate.fields, PasteFieldKey.ciUpper, 16.10);
     });
 
     test('refuse_anova_table refuses ANOVA explicitly', () {
@@ -253,10 +253,10 @@ void main() {
             PasteFieldKey.secondaryStandardDeviation,
             14.86025,
           );
-          _expectNumber(candidate.fields, PasteFieldKey.leveneF, 0.412);
-          _expectNumber(candidate.fields, PasteFieldKey.leveneP, 0.525);
-          _expectNumber(candidate.fields, PasteFieldKey.reportedT, 2.245);
-          _expectNumber(candidate.fields, PasteFieldKey.reportedP, 0.031);
+          _expectNumber(candidate.fields, PasteFieldKey.leveneF, 0.179);
+          _expectNumber(candidate.fields, PasteFieldKey.leveneP, 0.675);
+          _expectNumber(candidate.fields, PasteFieldKey.reportedT, 2.415);
+          _expectNumber(candidate.fields, PasteFieldKey.reportedP, 0.021);
         }
         _expectNumber(
           student.fields,
@@ -266,7 +266,7 @@ void main() {
         _expectNumber(
           welch.fields,
           PasteFieldKey.reportedDegreesOfFreedom,
-          37.114,
+          37.543,
         );
       });
     }
@@ -340,13 +340,13 @@ Independent Samples Test
 
 Levene's Test for Equality of Variances
 F       Sig.
-score     Equal variances assumed       0.412       0.525
+score     Equal variances assumed       0.179       0.675
           Equal variances not assumed
 
 t-test for Equality of Means
 t       df       Sig. (2-tailed)       Mean Difference
-score     Equal variances assumed       2.245       38       .031       10.77150
-          Equal variances not assumed   2.245       37.114   .031       10.77150
+score     Equal variances assumed       2.415       38       .021       10.77150
+          Equal variances not assumed   2.415       37.543   .021       10.77150
 '''),
   _Variant('tab separated copy', '''
 Group Statistics
@@ -357,13 +357,13 @@ score\tTreatment\t20\t82.7975\t13.30169\t2.97435
 Independent Samples Test
 Levene's Test for Equality of Variances
 F\tSig.
-score\tEqual variances assumed\t0.412\t0.525
+score\tEqual variances assumed\t0.179\t0.675
 \tEqual variances not assumed
 
 t-test for Equality of Means
 t\tdf\tSig. (2-tailed)\tMean Difference
-score\tEqual variances assumed\t2.245\t38\t.031\t10.77150
-\tEqual variances not assumed\t2.245\t37.114\t.031\t10.77150
+score\tEqual variances assumed\t2.415\t38\t.021\t10.77150
+\tEqual variances not assumed\t2.415\t37.543\t.021\t10.77150
 '''),
   _Variant('wrapped headers', '''
 Group Statistics
@@ -376,15 +376,15 @@ Independent Samples Test
 Levene's Test for Equality
 of Variances
                                       F        Sig.
-score   Equal variances assumed     0.412     0.525
+score   Equal variances assumed     0.179     0.675
         Equal variances not assumed
 
 t-test for Equality
 of Means
                                       t        df
                                       Sig. (2-tailed)   Mean Difference
-score   Equal variances assumed     2.245     38       .031              10.77150
-        Equal variances not assumed 2.245     37.114   .031              10.77150
+score   Equal variances assumed     2.415     38       .021              10.77150
+        Equal variances not assumed 2.415     37.543   .021              10.77150
 '''),
   _Variant('decimal commas', '''
 Group Statistics
@@ -396,26 +396,26 @@ score         Treatment   20    82,7975      13,30169          2,97435
 Independent Samples Test
 Levene's Test for Equality of Variances
                                       F        Sig.
-score   Equal variances assumed     0,412     0,525
+score   Equal variances assumed     0,179     0,675
         Equal variances not assumed
 
 t-test for Equality of Means
                                       t        df      Sig. (2-tailed)   Mean Difference
-score   Equal variances assumed     2,245     38       ,031              10,77150
-        Equal variances not assumed 2,245     37,114   ,031              10,77150
+score   Equal variances assumed     2,415     38       ,021              10,77150
+        Equal variances not assumed 2,415     37,543   ,021              10,77150
 '''),
   _Variant('tables in reverse order', '''
 Independent Samples Test
 
 Levene's Test for Equality of Variances
                                       F        Sig.
-score   Equal variances assumed     0.412     0.525
+score   Equal variances assumed     0.179     0.675
         Equal variances not assumed
 
 t-test for Equality of Means
                                       t        df      Sig. (2-tailed)   Mean Difference
-score   Equal variances assumed     2.245     38       .031              10.77150
-        Equal variances not assumed 2.245     37.114   .031              10.77150
+score   Equal variances assumed     2.415     38       .021              10.77150
+        Equal variances not assumed 2.415     37.543   .021              10.77150
 
 Group Statistics
               group        N       Mean    Std. Deviation   Std. Error Mean

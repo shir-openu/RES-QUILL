@@ -1,0 +1,6 @@
+ANOVA
+score
+                Sum of Squares    df     Mean Square      F      Sig.
+Between Groups      1420.51        3       473.503      4.118    .009
+Within Groups       9203.44       80       115.043
+Total              10623.95       83
