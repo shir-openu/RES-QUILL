@@ -3055,12 +3055,24 @@ class _ExampleControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _RqColors.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth < 520 ? 2 : 4;
         final gaps = 10 * (columns - 1);
         final buttonWidth = (constraints.maxWidth - gaps) / columns;
-        return Wrap(
+        // Without this line the buttons read as a chooser rather than as
+        // something to press, and a first-time user starts by typing into the
+        // empty box instead.
+        final heading = Padding(
+          key: Key('$keyPrefix-example-row-label'),
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Text(
+            'Load an example:',
+            style: TextStyle(color: colors.muted, fontSize: 14.5),
+          ),
+        );
+        final buttons = Wrap(
           spacing: 10,
           runSpacing: 10,
           children: [
@@ -3079,6 +3091,13 @@ class _ExampleControls extends StatelessWidget {
                   },
                 ),
               ),
+          ],
+        );
+        // These two are not examples, so they sit outside the labelled row.
+        final extras = Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
             _ActionButton(
               key: Key('$keyPrefix-spreadsheet-help'),
               label: 'CSV or Excel?',
@@ -3092,6 +3111,16 @@ class _ExampleControls extends StatelessWidget {
                 tone: _ButtonTone.tertiary,
                 onPressed: onOpenSampleFolder,
               ),
+          ],
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            heading,
+            const SizedBox(height: 8),
+            buttons,
+            const SizedBox(height: 10),
+            extras,
           ],
         );
       },
