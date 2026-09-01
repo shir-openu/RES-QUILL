@@ -548,15 +548,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SPSS row: Equal variances assumed'), findsOneWidget);
     expect(find.text('SPSS row: Equal variances not assumed'), findsOneWidget);
+    expect(find.text('Student t-test'), findsOneWidget);
+    expect(find.text('Welch t-test'), findsOneWidget);
 
-    await tester.tap(find.text('SPSS row: Equal variances assumed').first);
+    await tester.tap(find.text('Student t-test').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Type values from one output row.'), findsOneWidget);
     expect(find.text('SPSS row: Equal variances assumed'), findsOneWidget);
+    expect(find.text('Student t-test'), findsOneWidget);
     expect(find.text('Alpha (course, usually .05)'), findsOneWidget);
     expect(find.text('p direction'), findsOneWidget);
     expect(find.text('CI level (usually .95)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('manual-kind-field')));
+    await tester.pumpAndSettle();
+    expect(find.text('Student t-test'), findsWidgets);
+    expect(find.text('Welch t-test'), findsWidgets);
+    expect(find.text('SPSS row: Equal variances assumed'), findsWidgets);
+    expect(find.text('SPSS row: Equal variances not assumed'), findsOneWidget);
   });
 
   testWidgets('the start guide does not auto-advance', (tester) async {

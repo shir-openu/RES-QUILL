@@ -1595,8 +1595,8 @@ class _SelectionScreen extends StatelessWidget {
                 accent: colors.cardA,
                 status: 'Type values',
                 statusTone: _StatusTone.accepted,
-                title: SpssIndependentRowLabels.student,
-                description: 'Student t-test',
+                title: 'Student t-test',
+                description: SpssIndependentRowLabels.student,
                 bars: const [0.72, 0.46, 0.62],
                 guideTargetId: 'student_test_path',
                 guideScreen: _Screen.selection,
@@ -1606,8 +1606,8 @@ class _SelectionScreen extends StatelessWidget {
                 accent: colors.cardB,
                 status: 'Type values',
                 statusTone: _StatusTone.warning,
-                title: SpssIndependentRowLabels.welch,
-                description: 'Welch t-test',
+                title: 'Welch t-test',
+                description: SpssIndependentRowLabels.welch,
                 bars: const [0.84, 0.58, 0.70],
                 guideTargetId: 'welch_test_path',
                 guideScreen: _Screen.selection,
@@ -2392,15 +2392,13 @@ class _ManualFormPanel extends StatelessWidget {
             key: const Key('manual-kind-field'),
             initialValue: manualKind,
             isExpanded: true,
+            isDense: false,
             decoration: const InputDecoration(labelText: 'Test type'),
             items: TTestKind.values
                 .map(
                   (kind) => DropdownMenuItem(
                     value: kind,
-                    child: Text(
-                      _kindLabel(kind),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: _KindDropdownLabel(kind: kind),
                   ),
                 )
                 .toList(),
@@ -3732,6 +3730,33 @@ class _Field extends StatelessWidget {
   }
 }
 
+class _KindDropdownLabel extends StatelessWidget {
+  const _KindDropdownLabel({required this.kind});
+
+  final TTestKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final rowLabel = _kindSpssRowLabel(kind);
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(_kindLabel(kind), overflow: TextOverflow.ellipsis),
+        if (rowLabel != null)
+          Text(
+            rowLabel,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _FieldRow extends StatelessWidget {
   const _FieldRow({required this.children});
 
@@ -5049,10 +5074,19 @@ String _statusLabel(ValidationStatus status) {
 
 String _kindLabel(TTestKind kind) {
   return switch (kind) {
-    TTestKind.independentStudent => SpssIndependentRowLabels.student,
-    TTestKind.independentWelch => SpssIndependentRowLabels.welch,
+    TTestKind.independentStudent => 'Student t-test',
+    TTestKind.independentWelch => 'Welch t-test',
     TTestKind.pairedSamples => 'Paired samples',
     TTestKind.oneSample => 'One sample',
+  };
+}
+
+String? _kindSpssRowLabel(TTestKind kind) {
+  return switch (kind) {
+    TTestKind.independentStudent => SpssIndependentRowLabels.student,
+    TTestKind.independentWelch => SpssIndependentRowLabels.welch,
+    TTestKind.pairedSamples => null,
+    TTestKind.oneSample => null,
   };
 }
 
