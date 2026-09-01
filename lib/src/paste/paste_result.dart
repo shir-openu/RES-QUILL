@@ -153,6 +153,9 @@ class PasteExtractedField<T extends Object> {
 
 String _formatPasteNumber(PasteNumber number) {
   final decimals = number.decimalPlaces.clamp(0, 6);
+  if (number.value != 0 && number.value.abs() < 0.000001) {
+    return number.value.toStringAsExponential(1);
+  }
   return number.value.toStringAsFixed(decimals);
 }
 

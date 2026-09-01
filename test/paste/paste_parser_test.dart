@@ -38,6 +38,12 @@ void main() {
             .whereType<PasteFieldKey>()
             .toSet();
         expect(
+          result.missingRequiredFields
+              .map((field) => field.key?.path ?? field.reason)
+              .toList(),
+          fixture.expectedMissingKeys,
+        );
+        expect(
           detectedKeys.intersection(missingKeys),
           isEmpty,
           reason: '${fixture.id} reports a key as both detected and missing',
@@ -219,6 +225,7 @@ class _Fixture {
     required this.expectedFieldRelations,
     required this.expectedRoundedZeroFields,
     required this.expectedRefusalReasons,
+    required this.expectedMissingKeys,
     required this.roundTrips,
   });
 
@@ -245,6 +252,9 @@ class _Fixture {
       expectedRefusalReasons:
           ((expected['refusalReasons'] as List<Object?>?) ?? const [])
               .cast<String>(),
+      expectedMissingKeys:
+          ((expected['missingKeys'] as List<Object?>?) ?? const [])
+              .cast<String>(),
       roundTrips: (json['roundTrip']! as List<Object?>)
           .map((item) => _RoundTrip.fromJson(item! as Map<String, Object?>))
           .toList(),
@@ -262,6 +272,7 @@ class _Fixture {
   final Map<String, String> expectedFieldRelations;
   final List<String> expectedRoundedZeroFields;
   final List<String> expectedRefusalReasons;
+  final List<String> expectedMissingKeys;
   final List<_RoundTrip> roundTrips;
 }
 

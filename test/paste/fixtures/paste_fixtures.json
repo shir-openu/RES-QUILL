@@ -425,10 +425,46 @@
     },
     {
       "id": "R_IND01_WELCH_FLOOR",
-      "title": "R t.test Welch two-sample console output with R p-value floor",
+      "title": "R t.test Welch two-sample console output with R p-value floor and no descriptives",
       "format": "r_t_test",
       "provenance": "synthesised_from_sourced_shape",
-      "shapeSource": "R console output shape from the stats::t.test manual and Datanovia base-R two-group t-test tutorial. Numeric values were generated from the fixture descriptives; p-value < 2.2e-16 mirrors R's printed floor.",
+      "shapeSource": "Genuine R stats::t.test console-output shape. R prints sample estimates but not N or SD, so this fixture must ask for missing descriptives.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html; https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r",
+      "input": "Welch Two Sample t-test\n\ndata:  weight by group\nt = -20.8008, df = 26.9008, p-value < 2.2e-16\nalternative hypothesis: true difference in means between group Women and group Men is not equal to 0\n95 percent confidence interval:\n -24.53025 -20.12465\nsample estimates:\nmean in group Women   mean in group Men\n          63.49867             85.82612",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "missingKeys": [
+          "primary.n",
+          "primary.standardDeviation",
+          "secondary.n",
+          "secondary.standardDeviation"
+        ],
+        "fieldValues": {
+          "primary.mean": 63.49867,
+          "secondary.mean": 85.82612,
+          "reported.t": -20.8008,
+          "reported.df": 26.9008,
+          "reported.p": 2.2e-16,
+          "reported.ciLower": -24.53025,
+          "reported.ciUpper": -20.12465,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "R_IND01_WELCH_FLOOR_WITH_DESC",
+      "title": "R t.test Welch two-sample console output with prepended descriptives",
+      "format": "r_t_test",
+      "provenance": "genuine_console_plus_synthesised_descriptives",
+      "shapeSource": "The R console block is genuine R t.test shape. The prepended descriptives table is not emitted by R and is included only to cover user-supplied extra descriptives.",
       "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html; https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r",
       "scipyCheck": true,
       "input": "Descriptives\nGroup    N    Mean       SD\nWomen    20   63.49867   2.03000\nMen      20   85.82612   4.35000\n\nWelch Two Sample t-test\n\ndata:  weight by group\nt = -20.8008, df = 26.9008, p-value < 2.2e-16\nalternative hypothesis: true difference in means between group Women and group Men is not equal to 0\n95 percent confidence interval:\n -24.53025 -20.12465\nsample estimates:\nmean in group Women   mean in group Men\n          63.49867             85.82612",
@@ -445,6 +481,9 @@
           "secondary.n": 20,
           "secondary.mean": 85.82612,
           "secondary.standardDeviation": 4.35000,
+          "reported.t": -20.8008,
+          "reported.df": 26.9008,
+          "reported.p": 2.2e-16,
           "reported.ciLower": -24.53025,
           "reported.ciUpper": -20.12465,
           "reported.confidenceLevel": 0.95
@@ -463,10 +502,43 @@
     },
     {
       "id": "R_IND02_STUDENT_VAR_EQUAL",
-      "title": "R t.test var.equal TRUE two-sample console output",
+      "title": "R t.test var.equal TRUE two-sample console output with no descriptives",
       "format": "r_t_test",
       "provenance": "synthesised_from_sourced_shape",
-      "shapeSource": "R console output shape from the stats::t.test manual and R's sleep-data examples. Numeric values were generated from the fixture descriptives for an equal-variance Student test.",
+      "shapeSource": "Genuine R stats::t.test console-output shape for var.equal TRUE. R prints sample estimates but not N or SD, so this fixture must ask for missing descriptives.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html",
+      "input": "Two Sample t-test\n\ndata:  extra by group\nt = -1.8608, df = 18, p-value = 0.07919\nalternative hypothesis: true difference in means between group Extra1 and group Extra2 is not equal to 0\n95 percent confidence interval:\n -3.36387  0.20387\nsample estimates:\nmean in group Extra1   mean in group Extra2\n                0.75                 2.33",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": "independentStudent",
+        "candidateKinds": ["independentStudent"],
+        "selectedKind": "independentStudent",
+        "ambiguityIds": [],
+        "missingKeys": [
+          "primary.n",
+          "primary.standardDeviation",
+          "secondary.n",
+          "secondary.standardDeviation"
+        ],
+        "fieldValues": {
+          "primary.mean": 0.75,
+          "secondary.mean": 2.33,
+          "reported.t": -1.8608,
+          "reported.df": 18,
+          "reported.p": 0.07919,
+          "reported.ciLower": -3.36387,
+          "reported.ciUpper": 0.20387,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "R_IND02_STUDENT_VAR_EQUAL_WITH_DESC",
+      "title": "R t.test var.equal TRUE two-sample console output with prepended descriptives",
+      "format": "r_t_test",
+      "provenance": "genuine_console_plus_synthesised_descriptives",
+      "shapeSource": "The R console block is genuine R t.test shape. The prepended descriptives table is not emitted by R and is included only to cover user-supplied extra descriptives.",
       "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html",
       "scipyCheck": true,
       "input": "Descriptives\nGroup    N    Mean    SD\nExtra1   10   0.75    1.789010\nExtra2   10   2.33    2.002249\n\nTwo Sample t-test\n\ndata:  extra by group\nt = -1.8608, df = 18, p-value = 0.07919\nalternative hypothesis: true difference in means between group Extra1 and group Extra2 is not equal to 0\n95 percent confidence interval:\n -3.36387  0.20387\nsample estimates:\nmean in group Extra1   mean in group Extra2\n                0.75                 2.33",
@@ -483,6 +555,9 @@
           "secondary.n": 10,
           "secondary.mean": 2.33,
           "secondary.standardDeviation": 2.002249,
+          "reported.t": -1.8608,
+          "reported.df": 18,
+          "reported.p": 0.07919,
           "reported.ciLower": -3.36387,
           "reported.ciUpper": 0.20387,
           "reported.confidenceLevel": 0.95
@@ -498,10 +573,41 @@
     },
     {
       "id": "R_ONE01_BASE_CONSOLE",
-      "title": "R t.test one-sample console output",
+      "title": "R t.test one-sample console output with no descriptives",
       "format": "r_t_test",
-      "provenance": "sourced_console_plus_synthesised_descriptives",
-      "shapeSource": "One Sample t-test console block reproduced from Datanovia's one-sample t-test in R tutorial shape; the Descriptives line is synthesized so Res-Quill can validate from n, mean, and SD.",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Genuine R stats::t.test one-sample console-output shape. R prints the sample mean but not N or SD, so this fixture must ask for missing descriptives.",
+      "sourceUrl": "https://www.datanovia.com/en/lessons/t-test-in-r/",
+      "input": "One Sample t-test\n\ndata:  my_data$weight\nt = -8.1045, df = 9, p-value = 1.995e-05\nalternative hypothesis: true mean is not equal to 25\n95 percent confidence interval:\n 18.78346 21.49654\nsample estimates:\nmean of x\n    20.14",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": "oneSample",
+        "candidateKinds": ["oneSample"],
+        "selectedKind": "oneSample",
+        "ambiguityIds": [],
+        "missingKeys": [
+          "primary.n",
+          "primary.standardDeviation"
+        ],
+        "fieldValues": {
+          "primary.mean": 20.14,
+          "referenceMean": 25,
+          "reported.t": -8.1045,
+          "reported.df": 9,
+          "reported.p": 0.00001995,
+          "reported.ciLower": 18.78346,
+          "reported.ciUpper": 21.49654,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "R_ONE01_BASE_CONSOLE_WITH_DESC",
+      "title": "R t.test one-sample console output with prepended descriptives",
+      "format": "r_t_test",
+      "provenance": "genuine_console_plus_synthesised_descriptives",
+      "shapeSource": "The R console block is genuine R t.test shape. The prepended descriptives table is not emitted by R and is included only to cover user-supplied extra descriptives.",
       "sourceUrl": "https://www.datanovia.com/en/lessons/t-test-in-r/",
       "scipyCheck": true,
       "input": "Descriptives\nVariable    N    Mean    SD\nMice        10   20.14   1.896313\n\nOne Sample t-test\n\ndata:  my_data$weight\nt = -8.1045, df = 9, p-value = 1.995e-05\nalternative hypothesis: true mean is not equal to 25\n95 percent confidence interval:\n 18.78346 21.49654\nsample estimates:\nmean of x\n    20.14",
@@ -516,6 +622,11 @@
           "primary.mean": 20.14,
           "primary.standardDeviation": 1.896313,
           "referenceMean": 25,
+          "reported.t": -8.1045,
+          "reported.df": 9,
+          "reported.p": 0.00001995,
+          "reported.ciLower": 18.78346,
+          "reported.ciUpper": 21.49654,
           "reported.confidenceLevel": 0.95
         }
       },
@@ -529,10 +640,46 @@
     },
     {
       "id": "R_PAIR01_BASE_CONSOLE",
-      "title": "R t.test paired console output with paired-difference descriptives",
+      "title": "R t.test paired console output with no descriptives",
       "format": "r_t_test",
-      "provenance": "sourced_console_plus_synthesised_descriptives",
-      "shapeSource": "Paired t-test console block shape from Datanovia's paired t-test in R tutorial; marginal and paired-difference descriptive rows are synthesized from the same worked example so validation has n, means, SDs, and difference SD.",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Genuine R stats::t.test paired console-output shape. R prints the mean difference but not marginal descriptives or difference SD, so this fixture must ask for missing descriptives.",
+      "sourceUrl": "https://www.datanovia.com/en/lessons/t-test-in-r/",
+      "input": "Paired t-test\n\ndata:  before and after\nt = -25.546, df = 9, p-value = 1.039e-09\nalternative hypothesis: true mean difference is not equal to 0\n95 percent confidence interval:\n -217.1442 -181.8158\nsample estimates:\nmean difference\n        -199.48",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "missingKeys": [
+          "primary.n",
+          "primary.mean",
+          "primary.standardDeviation",
+          "secondary.n",
+          "secondary.mean",
+          "secondary.standardDeviation",
+          "paired.differenceStandardDeviation"
+        ],
+        "fieldValues": {
+          "paired.meanDifference": -199.480,
+          "reported.meanDifference": -199.480,
+          "reported.t": -25.546,
+          "reported.df": 9,
+          "reported.p": 1.039e-09,
+          "reported.ciLower": -217.1442,
+          "reported.ciUpper": -181.8158,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "R_PAIR01_BASE_CONSOLE_WITH_DESC",
+      "title": "R t.test paired console output with prepended descriptives",
+      "format": "r_t_test",
+      "provenance": "genuine_console_plus_synthesised_descriptives",
+      "shapeSource": "The R console block is genuine R t.test shape. The prepended marginal and paired-difference descriptives are not emitted by R and are included only to cover user-supplied extra descriptives.",
       "sourceUrl": "https://www.datanovia.com/en/lessons/t-test-in-r/",
       "scipyCheck": true,
       "input": "Descriptives\nMeasure    N    Mean      SD\nBefore     10   200.56    20.0282\nAfter      10   400.04    30.0869\n\nPaired Differences\nContrast          N    Mean       SD        SE\nBefore - After    10   -199.480   24.6929   7.8086\n\nPaired t-test\n\ndata:  before and after\nt = -25.546, df = 9, p-value = 1.039e-09\nalternative hypothesis: true mean difference is not equal to 0\n95 percent confidence interval:\n -217.1442 -181.8158\nsample estimates:\nmean difference\n        -199.48",
@@ -553,6 +700,9 @@
           "paired.differenceStandardDeviation": 24.6929,
           "reported.meanDifference": -199.480,
           "reported.standardError": 7.8086,
+          "reported.t": -25.546,
+          "reported.df": 9,
+          "reported.p": 1.039e-09,
           "reported.ciLower": -217.1442,
           "reported.ciUpper": -181.8158,
           "reported.confidenceLevel": 0.95
@@ -754,6 +904,35 @@
       ]
     },
     {
+      "id": "EXCEL_IND03_EQUAL_VARIANCES_NO_ALPHA",
+      "title": "Excel ToolPak two-sample equal-variances t-test output without Alpha row",
+      "format": "excel_toolpak",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from the Microsoft Analysis ToolPak equal-variances t-test shape with the Alpha row omitted, as a partial-selection paste.",
+      "sourceUrl": "https://support.microsoft.com/en-us/office/use-the-analysis-toolpak-to-perform-complex-data-analysis-6c67ccf0-f4a9-487c-8dec-bdb5a2cefab6",
+      "input": "t-Test: Two-Sample Assuming Equal Variances\n\n                 Variable 1    Variable 2\nMean             0.750000      2.330000\nVariance         3.200557      4.009001\nObservations     10            10\nPooled Variance  3.604779\nHypothesized Mean Difference 0\ndf               18\nt Stat           -1.860813\nP(T<=t) one-tail 0.039593\nt Critical one-tail 1.734064\nP(T<=t) two-tail 0.079187\nt Critical two-tail 2.100922",
+      "expected": {
+        "status": "needsConfirmation",
+        "detectedKind": "independentStudent",
+        "candidateKinds": ["independentStudent"],
+        "selectedKind": "independentStudent",
+        "ambiguityIds": [],
+        "missingKeys": ["reported.confidenceLevel"],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 0.750000,
+          "primary.standardDeviation": 1.789010,
+          "secondary.n": 10,
+          "secondary.mean": 2.330000,
+          "secondary.standardDeviation": 2.002249,
+          "reported.t": -1.860813,
+          "reported.df": 18,
+          "reported.p": 0.079187
+        }
+      },
+      "roundTrip": []
+    },
+    {
       "id": "EXCEL_IND02_UNEQUAL_VARIANCES",
       "title": "Excel ToolPak two-sample unequal-variances t-test output",
       "format": "excel_toolpak",
@@ -835,7 +1014,7 @@
         "selectedKind": null,
         "ambiguityIds": [],
         "fieldValues": {},
-        "refusalReasons": ["R t.test output is missing sample estimates or descriptives."]
+        "refusalReasons": ["R t.test output is missing the sample estimates block."]
       },
       "roundTrip": []
     },
@@ -874,6 +1053,25 @@
         "ambiguityIds": [],
         "fieldValues": {},
         "refusalReasons": ["Correlation output is not supported."]
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "R_NEG03_WILCOXON",
+      "title": "R Wilcoxon output refused",
+      "format": "negative",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Negative control shaped like R wilcox.test console output, which is a non-parametric test and not a t-test report path Res-Quill supports.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/wilcox.test.html",
+      "input": "Wilcoxon rank sum test\n\ndata:  x and y\nW = 42, p-value = 0.031",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {},
+        "refusalReasons": ["Wilcoxon output is not supported."]
       },
       "roundTrip": []
     },

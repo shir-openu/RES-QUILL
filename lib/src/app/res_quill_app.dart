@@ -1131,7 +1131,9 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
 
   String _formatPasteNumber(PasteNumber number) {
     final decimals = number.decimalPlaces.clamp(0, 6);
-    final text = number.value.toStringAsFixed(decimals);
+    final text = number.value != 0 && number.value.abs() < 0.000001
+        ? number.value.toStringAsExponential(1)
+        : number.value.toStringAsFixed(decimals);
     return switch (number.relation) {
       ReportedRelation.equalRounded => text,
       ReportedRelation.lessThan => '< $text',

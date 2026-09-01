@@ -389,7 +389,7 @@ class TTestPasteParser {
     if (kind == null) {
       return null;
     }
-    if (!_containsFolded(input, 'p-value') &&
+    if (!_containsFolded(input, 'data:') &&
         !_containsFolded(input, 'alternative hypothesis')) {
       return null;
     }
@@ -410,21 +410,15 @@ class TTestPasteParser {
     final pairedDifferenceFields = _pairedDifferenceFields(lines);
     final hasSampleEstimates =
         _lineIndexContaining(lines, 'sample estimates') != -1;
-    final hasEnoughDescriptives = switch (kind) {
-      TTestKind.independentStudent ||
-      TTestKind.independentWelch => groupRows.length >= 2,
-      TTestKind.oneSample => groupRows.isNotEmpty,
-      TTestKind.pairedSamples =>
-        groupRows.length >= 2 &&
-            _fieldByKey(
-                  pairedDifferenceFields,
-                  PasteFieldKey.pairedDifferenceStandardDeviation,
-                ) !=
-                null,
-    };
-    if (!hasSampleEstimates || !hasEnoughDescriptives) {
+    if (!hasSampleEstimates) {
       return _cannotParse(input, const [
-        'R t.test output is missing sample estimates or descriptives.',
+        'R t.test output is missing the sample estimates block.',
+      ]);
+    }
+    final sampleEstimateFields = _rSampleEstimateFields(lines, kind);
+    if (sampleEstimateFields.isEmpty) {
+      return _cannotParse(input, const [
+        'R t.test sample estimates block is missing supported estimate values.',
       ]);
     }
     final confidenceLevelField = _confidenceLevelField(input);
@@ -447,17 +441,23 @@ class TTestPasteParser {
       ]);
     }
 
+    final descriptiveFields = _statsToFields(
+      kind == TTestKind.oneSample ? groupRows.take(1).toList() : groupRows,
+      _GroupRowOrder.nMeanSd,
+      confidence: 0.82,
+    );
+    final suppliedFields = <PasteExtractedField<Object>>[
+      ...descriptiveFields,
+      if (kind == TTestKind.pairedSamples) ...pairedDifferenceFields,
+    ];
     final fields = <PasteExtractedField<Object>>[
-      ..._statsToFields(
-        kind == TTestKind.oneSample ? groupRows.take(1).toList() : groupRows,
-        _GroupRowOrder.nMeanSd,
-        confidence: 0.82,
-      ),
+      ...descriptiveFields,
+      if (kind == TTestKind.pairedSamples) ...pairedDifferenceFields,
+      ..._fieldsMissingFrom(sampleEstimateFields, suppliedFields),
       ...statisticFields,
-      if (kind != TTestKind.oneSample) ...confidenceIntervalFields,
+      ...confidenceIntervalFields,
       confidenceLevelField,
       ?referenceMeanField,
-      if (kind == TTestKind.pairedSamples) ...pairedDifferenceFields,
     ];
 
     return _finish(
@@ -691,54 +691,58 @@ class TTestPasteParser {
       lines,
       RegExp(r'^\s*alpha\b', caseSensitive: false),
     );
-    if (pTwoTail == null) {
-      return _cannotParse(input, const [
-        'Excel ToolPak t-test output is missing P(T<=t) two-tail.',
-      ]);
-    }
-    if (mean == null ||
-        variance == null ||
-        observations == null ||
-        t == null ||
-        df == null ||
-        alpha == null ||
-        mean.tokens.length < 2 ||
-        variance.tokens.length < 2 ||
-        observations.tokens.length < 2 ||
-        t.tokens.isEmpty ||
-        df.tokens.isEmpty ||
-        pTwoTail.tokens.isEmpty ||
-        alpha.tokens.isEmpty) {
-      return _cannotParse(input, const [
-        'Excel ToolPak t-test output is missing required summary rows.',
+    final missingRows = <String>[
+      if (mean == null || mean.tokens.length < 2) 'Mean',
+      if (variance == null || variance.tokens.length < 2) 'Variance',
+      if (observations == null || observations.tokens.length < 2)
+        'Observations',
+      if (t == null || t.tokens.isEmpty) 't Stat',
+      if (df == null || df.tokens.isEmpty) 'df',
+      if (pTwoTail == null || pTwoTail.tokens.isEmpty) 'P(T<=t) two-tail',
+    ];
+    if (missingRows.isNotEmpty) {
+      return _cannotParse(input, [
+        'Excel ToolPak t-test output is missing required row(s): '
+            '${missingRows.join(', ')}.',
       ]);
     }
 
+    final meanRow = mean!;
+    final varianceRow = variance!;
+    final observationsRow = observations!;
+    final tRow = t!;
+    final dfRow = df!;
+    final pTwoTailRow = pTwoTail!;
     final fields = <PasteExtractedField<Object>>[
       _numberField(
         PasteFieldKey.primaryN,
-        observations.tokens[0],
+        observationsRow.tokens[0],
         preferInteger: true,
       ),
-      _numberField(PasteFieldKey.primaryMean, mean.tokens[0]),
+      _numberField(PasteFieldKey.primaryMean, meanRow.tokens[0]),
       _standardDeviationFromVarianceField(
         PasteFieldKey.primaryStandardDeviation,
-        variance.tokens[0],
+        varianceRow.tokens[0],
       ),
       _numberField(
         PasteFieldKey.secondaryN,
-        observations.tokens[1],
+        observationsRow.tokens[1],
         preferInteger: true,
       ),
-      _numberField(PasteFieldKey.secondaryMean, mean.tokens[1]),
+      _numberField(PasteFieldKey.secondaryMean, meanRow.tokens[1]),
       _standardDeviationFromVarianceField(
         PasteFieldKey.secondaryStandardDeviation,
-        variance.tokens[1],
+        varianceRow.tokens[1],
       ),
-      _numberField(PasteFieldKey.reportedT, t.tokens[0]),
-      _numberField(PasteFieldKey.reportedDegreesOfFreedom, df.tokens[0]),
-      _numberField(PasteFieldKey.reportedP, pTwoTail.tokens[0], pValue: true),
-      _confidenceFromAlphaField(alpha.tokens[0]),
+      _numberField(PasteFieldKey.reportedT, tRow.tokens[0]),
+      _numberField(PasteFieldKey.reportedDegreesOfFreedom, dfRow.tokens[0]),
+      _numberField(
+        PasteFieldKey.reportedP,
+        pTwoTailRow.tokens[0],
+        pValue: true,
+      ),
+      if (alpha != null && alpha.tokens.isNotEmpty)
+        _confidenceFromAlphaField(alpha.tokens[0]),
     ];
     if (kind == TTestKind.pairedSamples) {
       final correlation = _excelRow(
@@ -1010,6 +1014,11 @@ class TTestPasteParser {
       return _cannotParse(input, const [
         'Correlation output is not supported.',
       ]);
+    }
+    if (RegExp(
+      r'\b(wilcoxon|wilcox\.test|mann[- ]whitney)\b',
+    ).hasMatch(folded)) {
+      return _cannotParse(input, const ['Wilcoxon output is not supported.']);
     }
     if (RegExp(r'\bz[- ]test\b').hasMatch(folded)) {
       return _cannotParse(input, const ['z-test output is not supported.']);
@@ -1313,6 +1322,129 @@ class TTestPasteParser {
       ];
     }
     return const [];
+  }
+
+  static List<PasteExtractedField<Object>> _rSampleEstimateFields(
+    List<_Line> lines,
+    TTestKind kind,
+  ) {
+    final start = _lineIndexContaining(lines, 'sample estimates');
+    if (start == -1) {
+      return const [];
+    }
+
+    _Line? labelLine;
+    List<_NumericToken> valueTokens = const [];
+    for (var i = start + 1; i < lines.length; i += 1) {
+      final line = lines[i];
+      if (line.text.trim().isEmpty) {
+        continue;
+      }
+      if (_isRSampleEstimateLabel(line)) {
+        labelLine = line;
+        continue;
+      }
+      final tokens = _numbersInLine(line);
+      if (tokens.isEmpty) {
+        labelLine ??= line;
+        continue;
+      }
+      valueTokens = tokens;
+      break;
+    }
+
+    return switch (kind) {
+      TTestKind.independentStudent || TTestKind.independentWelch =>
+        _rIndependentSampleEstimateFields(labelLine, valueTokens),
+      TTestKind.oneSample => _rOneSampleEstimateFields(valueTokens),
+      TTestKind.pairedSamples => _rPairedSampleEstimateFields(valueTokens),
+    };
+  }
+
+  static bool _isRSampleEstimateLabel(_Line line) {
+    final folded = line.folded;
+    return folded.contains('mean in group') ||
+        folded.contains('mean of x') ||
+        folded.contains('mean difference');
+  }
+
+  static List<PasteExtractedField<Object>> _rIndependentSampleEstimateFields(
+    _Line? labelLine,
+    List<_NumericToken> tokens,
+  ) {
+    if (tokens.length < 2) {
+      return const [];
+    }
+    final fields = <PasteExtractedField<Object>>[];
+    if (labelLine != null) {
+      final labels = _rIndependentSampleEstimateLabels(labelLine);
+      if (labels.length >= 2) {
+        fields
+          ..add(_textField(PasteFieldKey.primaryLabel, labels[0]))
+          ..add(_textField(PasteFieldKey.secondaryLabel, labels[1]));
+      }
+    }
+    fields
+      ..add(
+        _numberField(PasteFieldKey.primaryMean, tokens[0], confidence: 0.86),
+      )
+      ..add(
+        _numberField(PasteFieldKey.secondaryMean, tokens[1], confidence: 0.86),
+      );
+    return fields;
+  }
+
+  static List<_TextSpan> _rIndependentSampleEstimateLabels(_Line line) {
+    final markers = RegExp(
+      r'\bmean\s+in\s+group\s+',
+      caseSensitive: false,
+    ).allMatches(line.text).toList();
+    if (markers.length < 2) {
+      return const [];
+    }
+
+    final first = _textSpanFromLineRange(
+      line,
+      markers[0].end,
+      markers[1].start,
+    );
+    final second = _textSpanFromLineRange(
+      line,
+      markers[1].end,
+      line.text.length,
+    );
+    return [?first, ?second];
+  }
+
+  static List<PasteExtractedField<Object>> _rOneSampleEstimateFields(
+    List<_NumericToken> tokens,
+  ) {
+    if (tokens.isEmpty) {
+      return const [];
+    }
+    return [
+      _numberField(PasteFieldKey.primaryMean, tokens[0], confidence: 0.86),
+    ];
+  }
+
+  static List<PasteExtractedField<Object>> _rPairedSampleEstimateFields(
+    List<_NumericToken> tokens,
+  ) {
+    if (tokens.isEmpty) {
+      return const [];
+    }
+    return [
+      _numberField(
+        PasteFieldKey.pairedMeanDifference,
+        tokens[0],
+        confidence: 0.86,
+      ),
+      _numberField(
+        PasteFieldKey.reportedMeanDifference,
+        tokens[0],
+        confidence: 0.86,
+      ),
+    ];
   }
 
   static PasteExtractedField<Object>? _rReferenceMeanField(
@@ -1756,6 +1888,21 @@ class TTestPasteParser {
     );
   }
 
+  static PasteExtractedField<Object> _textField(
+    PasteFieldKey key,
+    _TextSpan span, {
+    double confidence = 0.80,
+  }) {
+    return PasteExtractedField<Object>(
+      key: key,
+      value: span.value,
+      sourceText: span.sourceText,
+      start: span.start,
+      end: span.end,
+      confidence: confidence,
+    );
+  }
+
   static PasteExtractedField<Object> _standardDeviationFromVarianceField(
     PasteFieldKey key,
     _NumericToken token,
@@ -1934,6 +2081,26 @@ class TTestPasteParser {
     );
   }
 
+  static _TextSpan? _textSpanFromLineRange(
+    _Line line,
+    int startInLine,
+    int endInLine,
+  ) {
+    final raw = line.text.substring(startInLine, endInLine);
+    final startTrim = raw.length - raw.trimLeft().length;
+    final endTrim = raw.trimRight().length;
+    if (startTrim >= endTrim) {
+      return null;
+    }
+    final sourceText = raw.substring(startTrim, endTrim);
+    return _TextSpan(
+      value: _cleanLabel(sourceText),
+      sourceText: sourceText,
+      start: line.start + startInLine + startTrim,
+      end: line.start + startInLine + endTrim,
+    );
+  }
+
   static ReportedRelation _relationFromSymbol(String? symbol) {
     return switch (symbol?.trim()) {
       '<' => ReportedRelation.lessThan,
@@ -1960,6 +2127,14 @@ class TTestPasteParser {
       }
     }
     return missing;
+  }
+
+  static List<PasteExtractedField<Object>> _fieldsMissingFrom(
+    List<PasteExtractedField<Object>> fields,
+    List<PasteExtractedField<Object>> existing,
+  ) {
+    final seenKeys = existing.map((field) => field.key).toSet();
+    return fields.where((field) => !seenKeys.contains(field.key)).toList();
   }
 
   static List<PasteExtractedField<Object>> _uniqueFields(

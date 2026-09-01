@@ -10,8 +10,9 @@ import 'package:res_quill/src/paste/paste_parser.dart';
 
 const dir = r'D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\PASTE_TEXT';
 
-void main() {
-  final files = Directory(dir).listSync().whereType<File>().toList()
+void main(List<String> args) {
+  final target = args.isEmpty ? dir : args.first;
+  final files = Directory(target).listSync().whereType<File>().toList()
     ..sort((a, b) => a.path.compareTo(b.path));
 
   for (final file in files) {

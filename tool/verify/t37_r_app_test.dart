@@ -23,17 +23,26 @@ const _allSeenGuideScreensForT37 = [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('T37 R Welch fixture reaches the report and matches scipy', (
+  testWidgets('T38 genuine R Welch reaches the report after missing SD entry', (
     tester,
   ) async {
     final input = _fixtureInput('R_IND01_WELCH_FLOOR');
     final parsed = TTestPasteParser.parse(input);
-    expect(parsed.status, PasteParseStatus.confident);
-    final candidate = parsed.selectedCandidate!;
+    expect(parsed.status, PasteParseStatus.needsConfirmation);
+    final candidate = parsed.candidates.single;
     expect(candidate.kind, TTestKind.independentWelch);
     expect(candidate.reportedPValueTail, ReportedPValueTail.twoTailed);
+    expect(
+      candidate.missingRequiredFields().map((field) => field.key).toList(),
+      [
+        PasteFieldKey.primaryN,
+        PasteFieldKey.primaryStandardDeviation,
+        PasteFieldKey.secondaryN,
+        PasteFieldKey.secondaryStandardDeviation,
+      ],
+    );
 
-    final validationInput = candidate.toValidationInput();
+    final validationInput = _completedWelchInput(candidate);
     final appStats = TTestValidator.resultFromInput(validationInput);
     final scipy = _scipyFrom(validationInput);
     expect(appStats.t, closeTo(scipy.t, 1e-9));
@@ -43,11 +52,16 @@ void main() {
     await _pumpApp(tester);
     await _pasteAndReview(tester, input);
     expect(find.text('Check what was found'), findsOneWidget);
+    expect(find.text('Find this value in Group Statistics.'), findsNWidgets(4));
 
+    await _enterField(tester, 'Group 1 n', '20');
+    await _enterField(tester, 'Group 1 SD', '2.03000');
+    await _enterField(tester, 'Group 2 n', '20');
+    await _enterField(tester, 'Group 2 SD', '4.35000');
     await tester.ensureVisible(
-      find.byKey(const Key('confirm-detected-values')),
+      find.byKey(const Key('validate-entered-values')),
     );
-    await tester.tap(find.byKey(const Key('confirm-detected-values')));
+    await tester.tap(find.byKey(const Key('validate-entered-values')));
     await _settle(tester);
     expect(find.text('Check the numbers.'), findsOneWidget);
 
@@ -75,6 +89,12 @@ void main() {
         'fixture': 'R_IND01_WELCH_FLOOR',
         'uiStop': 'report_generated',
         'format': candidate.format,
+        'completedFields': [
+          'primary.n',
+          'primary.sd',
+          'secondary.n',
+          'secondary.sd',
+        ],
         'app': _statsJson(appStats),
         'scipy': scipy.toJson(),
       }),
@@ -181,11 +201,53 @@ Future<void> _pasteAndReview(WidgetTester tester, String paste) async {
   await _settle(tester);
 }
 
+Future<void> _enterField(
+  WidgetTester tester,
+  String label,
+  String value,
+) async {
+  final finder = find.byWidgetPredicate(
+    (widget) => widget is TextField && widget.decoration?.labelText == label,
+  );
+  await tester.ensureVisible(finder);
+  await tester.enterText(finder, value);
+  await _settle(tester);
+}
+
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
   await tester.pump(const Duration(milliseconds: 350));
   await tester.pump();
+}
+
+TTestValidationInput _completedWelchInput(PasteTTestCandidate candidate) {
+  ReportedValue? reported(PasteFieldKey key) =>
+      candidate.number(key)?.toReportedValue();
+  return TTestValidationInput(
+    kind: TTestKind.independentWelch,
+    first: ReportedDescriptives(
+      label: candidate.text(PasteFieldKey.primaryLabel),
+      n: 20,
+      mean: candidate.number(PasteFieldKey.primaryMean)!.value,
+      standardDeviation: 2.03000,
+    ),
+    second: ReportedDescriptives(
+      label: candidate.text(PasteFieldKey.secondaryLabel),
+      n: 20,
+      mean: candidate.number(PasteFieldKey.secondaryMean)!.value,
+      standardDeviation: 4.35000,
+    ),
+    reportedT: reported(PasteFieldKey.reportedT),
+    reportedDegreesOfFreedom: reported(PasteFieldKey.reportedDegreesOfFreedom),
+    reportedP: reported(PasteFieldKey.reportedP),
+    reportedPValueTail: candidate.reportedPValueTail!,
+    reportedMeanDifference: reported(PasteFieldKey.reportedMeanDifference),
+    reportedStandardError: reported(PasteFieldKey.reportedStandardError),
+    reportedCiLower: reported(PasteFieldKey.ciLower),
+    reportedCiUpper: reported(PasteFieldKey.ciUpper),
+    confidenceLevel: candidate.number(PasteFieldKey.confidenceLevel)!.value,
+  );
 }
 
 class _ScipyResult {
