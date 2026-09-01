@@ -56,6 +56,13 @@ void main() {
       'p = .999, mean difference = 9.00, SE = 2.0737, '
       '95% CI [4.83, 13.17].';
 
+  const reportApaPaste =
+      'Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and '
+      'Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a '
+      'two-tailed Welch independent-samples t test, t(48.80) = 4.34, '
+      'p < .001, mean difference = 9.00, SE = 2.0737, '
+      '95% CI [4.83, 13.17].';
+
   setUp(_mockAllGuideScreensSeen);
 
   testWidgets('new bundled example assets match source bytes', (tester) async {
@@ -644,6 +651,59 @@ void main() {
     }
   });
 
+  testWidgets('guide geometry avoids protected content on every step', (
+    tester,
+  ) async {
+    final guideTargetsByScreen = resQuillGuideStepTargetsForTesting();
+    const screenIds = ['start', 'compare', 'input', 'validation', 'report'];
+    const surfaceSizes = [Size(1440, 1000), Size(390, 900)];
+
+    expect(guideTargetsByScreen.keys, unorderedEquals(screenIds));
+    expect(
+      guideTargetsByScreen.values.fold<int>(
+        0,
+        (total, steps) => total + steps.length,
+      ),
+      19,
+    );
+
+    final covered = <String>{};
+    for (final surfaceSize in surfaceSizes) {
+      for (final screenId in screenIds) {
+        await _pumpGuideGeometryScreen(
+          tester,
+          surfaceSize,
+          screenId,
+          failingPaste: failingApaPaste,
+          reportPaste: reportApaPaste,
+        );
+        await _openGuide(tester);
+
+        final stepTargets = guideTargetsByScreen[screenId]!;
+        for (var index = 0; index < stepTargets.length; index += 1) {
+          await _pumpGuideMeasurement(tester);
+          _expectGuideGeometryClean(
+            tester,
+            surfaceSize,
+            stepTargets[index],
+            '$screenId step ${index + 1} target ${stepTargets[index]}',
+          );
+          covered.add('$surfaceSize:$screenId:$index');
+
+          if (index != stepTargets.length - 1) {
+            await tester.tap(find.byKey(const Key('guide-next')));
+            await _pumpGuideMeasurement(tester);
+          }
+        }
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+    }
+
+    expect(covered.length, 19 * surfaceSizes.length);
+  });
+
   testWidgets('guide traps keyboard focus and Escape closes it', (
     tester,
   ) async {
@@ -746,8 +806,212 @@ Future<void> _pumpGuideMeasurement(WidgetTester tester) async {
   await tester.pump();
 }
 
+Future<void> _pumpGuideGeometryScreen(
+  WidgetTester tester,
+  Size surfaceSize,
+  String screenId, {
+  required String failingPaste,
+  required String reportPaste,
+}) async {
+  SharedPreferences.setMockInitialValues({
+    _themePreferenceKeyForTest: 'dark',
+    _seenGuideScreensPreferenceKeyForTest: _allSeenGuideScreensForTest,
+  });
+  await _setSurface(tester, surfaceSize);
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pumpAndSettle();
+  await tester.pumpWidget(const MainApp());
+  await _pumpGuideMeasurement(tester);
+
+  switch (screenId) {
+    case 'start':
+      return;
+    case 'compare':
+      final typeValues = find.widgetWithText(FilledButton, 'Type values').first;
+      await tester.ensureVisible(typeValues);
+      await tester.tap(typeValues);
+      await tester.pumpAndSettle();
+      return;
+    case 'input':
+      final pasteOutput = find
+          .widgetWithText(FilledButton, 'Paste output')
+          .first;
+      await tester.ensureVisible(pasteOutput);
+      await tester.tap(pasteOutput);
+      await tester.pumpAndSettle();
+      await _loadDefaultExample(tester);
+      await _jumpToTop(tester);
+      return;
+    case 'validation':
+      await _pasteAndReview(tester, failingPaste);
+      await tester.ensureVisible(
+        find.byKey(const Key('confirm-detected-values')),
+      );
+      await tester.tap(find.byKey(const Key('confirm-detected-values')));
+      await tester.pumpAndSettle();
+      return;
+    case 'report':
+      await _pasteAndReview(tester, reportPaste);
+      await tester.ensureVisible(
+        find.byKey(const Key('confirm-detected-values')),
+      );
+      await tester.tap(find.byKey(const Key('confirm-detected-values')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('generate-report')));
+      await tester.tap(find.byKey(const Key('generate-report')));
+      await tester.pumpAndSettle();
+      return;
+    default:
+      fail('Unknown guide screen id $screenId');
+  }
+}
+
+Future<void> _openGuide(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('guide-replay')));
+  await _pumpGuideMeasurement(tester);
+}
+
+Future<void> _loadDefaultExample(WidgetTester tester) async {
+  final loadButton = find.descendant(
+    of: find.byKey(const Key('paste-example-spss-independent')),
+    matching: find.byType(FilledButton),
+  );
+  await tester.ensureVisible(loadButton);
+  final button = tester.widget<FilledButton>(loadButton);
+  expect(button.onPressed, isNotNull);
+  await tester.runAsync(() async {
+    button.onPressed!();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  });
+  await tester.pumpAndSettle();
+}
+
+Future<void> _jumpToTop(WidgetTester tester) async {
+  final scrollable = tester.state<ScrollableState>(
+    find.byType(Scrollable).first,
+  );
+  scrollable.position.jumpTo(scrollable.position.minScrollExtent);
+  await _pumpGuideMeasurement(tester);
+}
+
+void _expectGuideGeometryClean(
+  WidgetTester tester,
+  Size surfaceSize,
+  String targetId,
+  String label,
+) {
+  final bubble = tester.getRect(find.byKey(const Key('guide-bubble')));
+  final highlight = tester.getRect(find.byKey(const Key('guide-highlight')));
+  final targetFinder = find.byKey(ValueKey('guide-target-$targetId'));
+
+  expect(targetFinder, findsOneWidget, reason: '$label target is missing');
+  final target = tester.getRect(targetFinder);
+  final visibleTarget = _visibleTargetRect(target, surfaceSize, targetId);
+
+  expect(visibleTarget, isNotNull, reason: '$label target is not visible');
+  final checkedTarget = visibleTarget!;
+  expect(
+    _rectsOverlap(highlight, checkedTarget),
+    isTrue,
+    reason: '$label highlight misses target: $highlight / $checkedTarget',
+  );
+
+  expect(
+    _rectsOverlap(bubble, highlight),
+    isFalse,
+    reason: '$label bubble overlaps highlighted target: $bubble / $highlight',
+  );
+
+  final protectedElements = find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> && key.value.startsWith('guide-protected-');
+  }).evaluate();
+  var checked = 0;
+  for (final element in protectedElements) {
+    final key = (element.widget.key! as ValueKey<String>).value;
+    final renderObject = element.findRenderObject();
+    if (renderObject is! RenderBox ||
+        !renderObject.attached ||
+        !renderObject.hasSize) {
+      continue;
+    }
+    final rawRect = MatrixUtils.transformRect(
+      renderObject.getTransformTo(null),
+      Offset.zero & renderObject.size,
+    );
+    final visibleRect = _visibleProtectedRect(rawRect, surfaceSize, key);
+    if (visibleRect == null) {
+      continue;
+    }
+    checked += 1;
+    expect(
+      _rectsOverlap(bubble, visibleRect),
+      isFalse,
+      reason: '$label bubble overlaps $key: $bubble / $visibleRect',
+    );
+  }
+
+  expect(
+    _rectsOverlap(bubble, checkedTarget),
+    isFalse,
+    reason: '$label bubble overlaps target: $bubble / $checkedTarget',
+  );
+  expect(checked, greaterThan(0), reason: '$label checked no protected zones');
+}
+
+Rect? _visibleTargetRect(Rect rect, Size surfaceSize, String targetId) {
+  final viewport = Offset.zero & surfaceSize;
+  final contentClip = Rect.fromLTRB(
+    0,
+    resQuillTopControlsReservedExtentForTesting,
+    surfaceSize.width,
+    surfaceSize.height - resQuillGuideDockExtentForTesting(surfaceSize),
+  );
+  final clip = _isTopControlTarget(targetId) ? viewport : contentClip;
+  return _rectIntersection(rect, clip);
+}
+
+Rect? _visibleProtectedRect(Rect rect, Size surfaceSize, String key) {
+  final viewport = Offset.zero & surfaceSize;
+  final contentClip = Rect.fromLTRB(
+    0,
+    resQuillTopControlsReservedExtentForTesting,
+    surfaceSize.width,
+    surfaceSize.height - resQuillGuideDockExtentForTesting(surfaceSize),
+  );
+  final clip = _isTopControlProtected(key) ? viewport : contentClip;
+  return _rectIntersection(rect, clip);
+}
+
+bool _isTopControlProtected(String key) {
+  return key.endsWith('-guide-replay') ||
+      key.endsWith('-open-settings') ||
+      key.contains('BRIGHT_VIEW') ||
+      key.contains('DARK_VIEW');
+}
+
+bool _isTopControlTarget(String targetId) {
+  return targetId == 'guide_replay' || targetId == 'theme_toggle';
+}
+
+bool _rectsOverlap(Rect a, Rect b) => _rectIntersection(a, b) != null;
+
+Rect? _rectIntersection(Rect a, Rect b) {
+  const tolerance = 0.5;
+  final left = a.left > b.left ? a.left : b.left;
+  final top = a.top > b.top ? a.top : b.top;
+  final right = a.right < b.right ? a.right : b.right;
+  final bottom = a.bottom < b.bottom ? a.bottom : b.bottom;
+  if (right - left <= tolerance || bottom - top <= tolerance) {
+    return null;
+  }
+  return Rect.fromLTRB(left, top, right, bottom);
+}
+
 Future<void> _pasteAndReview(WidgetTester tester, String paste) async {
-  await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
+  final pasteOutput = find.widgetWithText(FilledButton, 'Paste output').first;
+  await tester.ensureVisible(pasteOutput);
+  await tester.tap(pasteOutput);
   await tester.pumpAndSettle();
   await tester.enterText(find.byKey(const Key('paste-output-box')), paste);
   await tester.ensureVisible(find.byKey(const Key('review-detected-fields')));

@@ -219,6 +219,9 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
       home: Builder(
         builder: (context) {
           final colors = _RqColors.of(context);
+          final guideDockExtent = _guideSession == null
+              ? 0.0
+              : _guideBubbleDockExtentFor(MediaQuery.sizeOf(context));
           return Scaffold(
             backgroundColor: colors.background,
             body: _GuideScope(
@@ -229,7 +232,11 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
               child: Stack(
                 children: [
                   const _BackgroundLayer(),
-                  Positioned.fill(child: _currentScreen()),
+                  Positioned.fill(
+                    top: _topControlsReservedExtent,
+                    bottom: guideDockExtent,
+                    child: _currentScreen(),
+                  ),
                   Positioned(
                     top: 18,
                     left: 18,
@@ -244,6 +251,7 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
                   _GuideOverlay(
                     registry: _guideRegistry,
                     session: _guideSession,
+                    reservedBottom: guideDockExtent,
                     onBack: _previousGuideTip,
                     onNext: _nextGuideTip,
                     onClose: _closeGuide,
@@ -1392,14 +1400,18 @@ class _BrandCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 52),
-          Text(
-            'Paste t-test output. Get APA wording.',
-            key: const Key('start-headline'),
-            style: TextStyle(
-              color: colors.cardTitle,
-              fontSize: 40,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
+          _GuideProtected(
+            role: _GuideProtectedRole.heading,
+            id: 'start-headline',
+            child: Text(
+              'Paste t-test output. Get APA wording.',
+              key: const Key('start-headline'),
+              style: TextStyle(
+                color: colors.cardTitle,
+                fontSize: 40,
+                fontWeight: FontWeight.w800,
+                height: 1.05,
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -1494,14 +1506,18 @@ class _AnalysisAreaPanel extends StatelessWidget {
             children: [
               _GuideTarget(
                 id: 'analysis_area_heading',
-                child: Text(
-                  'Choose what you are reporting.',
-                  key: const Key('analysis-area-title'),
-                  style: TextStyle(
-                    color: colors.title,
-                    fontSize: 20.5,
-                    fontWeight: FontWeight.w700,
-                    height: 1.18,
+                child: _GuideProtected(
+                  role: _GuideProtectedRole.heading,
+                  id: 'analysis-area-title',
+                  child: Text(
+                    'Choose what you are reporting.',
+                    key: const Key('analysis-area-title'),
+                    style: TextStyle(
+                      color: colors.title,
+                      fontSize: 20.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.18,
+                    ),
                   ),
                 ),
               ),
@@ -1930,25 +1946,29 @@ class _PastePanel extends StatelessWidget {
             onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            height: pasteBoxHeight,
-            child: TextField(
-              key: const Key('paste-output-box'),
-              controller: pasteController,
-              expands: true,
-              maxLines: null,
-              textAlignVertical: TextAlignVertical.top,
-              keyboardType: TextInputType.multiline,
-              spellCheckConfiguration: SpellCheckConfiguration.disabled(),
-              style: TextStyle(
-                color: colors.fieldText,
-                fontFamily: 'Consolas',
-                fontSize: 13.5,
-                height: 1.48,
-              ),
-              decoration: const InputDecoration(
-                alignLabelWithHint: true,
-                labelText: 'T-test output',
+          _GuideProtected(
+            role: _GuideProtectedRole.interactive,
+            id: 'paste-output-box',
+            child: SizedBox(
+              height: pasteBoxHeight,
+              child: TextField(
+                key: const Key('paste-output-box'),
+                controller: pasteController,
+                expands: true,
+                maxLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                spellCheckConfiguration: SpellCheckConfiguration.disabled(),
+                style: TextStyle(
+                  color: colors.fieldText,
+                  fontFamily: 'Consolas',
+                  fontSize: 13.5,
+                  height: 1.48,
+                ),
+                decoration: const InputDecoration(
+                  alignLabelWithHint: true,
+                  labelText: 'T-test output',
+                ),
               ),
             ),
           ),
@@ -2063,11 +2083,15 @@ class _PasteReview extends StatelessWidget {
             child: Column(
               children: [
                 for (final candidate in result.candidates)
-                  RadioListTile<PasteTTestCandidate>(
-                    value: candidate,
-                    title: Text(candidate.label),
-                    subtitle: Text(_varianceRowSubtitle(candidate)),
-                    contentPadding: EdgeInsets.zero,
+                  _GuideProtected(
+                    role: _GuideProtectedRole.interactive,
+                    id: 'paste-candidate-${candidate.label}',
+                    child: RadioListTile<PasteTTestCandidate>(
+                      value: candidate,
+                      title: Text(candidate.label),
+                      subtitle: Text(_varianceRowSubtitle(candidate)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
               ],
             ),
@@ -2084,28 +2108,40 @@ class _PasteReview extends StatelessWidget {
             },
             child: const Column(
               children: [
-                RadioListTile<ReportedPValueTail>(
-                  key: Key('paste-tail-two-tailed'),
-                  value: ReportedPValueTail.twoTailed,
-                  title: Text('Two-tailed'),
-                  subtitle: Text('Use SPSS Sig. (2-tailed).'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                RadioListTile<ReportedPValueTail>(
-                  value: ReportedPValueTail.less,
-                  title: Text('Lower-tail'),
-                  subtitle: Text(
-                    'Use only if the assignment predicts lower values.',
+                _GuideProtected(
+                  role: _GuideProtectedRole.interactive,
+                  id: 'paste-tail-two-tailed',
+                  child: RadioListTile<ReportedPValueTail>(
+                    key: Key('paste-tail-two-tailed'),
+                    value: ReportedPValueTail.twoTailed,
+                    title: Text('Two-tailed'),
+                    subtitle: Text('Use SPSS Sig. (2-tailed).'),
+                    contentPadding: EdgeInsets.zero,
                   ),
-                  contentPadding: EdgeInsets.zero,
                 ),
-                RadioListTile<ReportedPValueTail>(
-                  value: ReportedPValueTail.greater,
-                  title: Text('Upper-tail'),
-                  subtitle: Text(
-                    'Use only if the assignment predicts higher values.',
+                _GuideProtected(
+                  role: _GuideProtectedRole.interactive,
+                  id: 'paste-tail-less',
+                  child: RadioListTile<ReportedPValueTail>(
+                    value: ReportedPValueTail.less,
+                    title: Text('Lower-tail'),
+                    subtitle: Text(
+                      'Use only if the assignment predicts lower values.',
+                    ),
+                    contentPadding: EdgeInsets.zero,
                   ),
-                  contentPadding: EdgeInsets.zero,
+                ),
+                _GuideProtected(
+                  role: _GuideProtectedRole.interactive,
+                  id: 'paste-tail-greater',
+                  child: RadioListTile<ReportedPValueTail>(
+                    value: ReportedPValueTail.greater,
+                    title: Text('Upper-tail'),
+                    subtitle: Text(
+                      'Use only if the assignment predicts higher values.',
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
               ],
             ),
@@ -2391,25 +2427,29 @@ class _ManualFormPanel extends StatelessWidget {
             onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
           ),
           const SizedBox(height: 14),
-          DropdownButtonFormField<TTestKind>(
-            key: const Key('manual-kind-field'),
-            initialValue: manualKind,
-            isExpanded: true,
-            isDense: false,
-            decoration: const InputDecoration(labelText: 'Test type'),
-            items: TTestKind.values
-                .map(
-                  (kind) => DropdownMenuItem(
-                    value: kind,
-                    child: _KindDropdownLabel(kind: kind),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                onManualKindChanged(value);
-              }
-            },
+          _GuideProtected(
+            role: _GuideProtectedRole.interactive,
+            id: 'manual-kind-field',
+            child: DropdownButtonFormField<TTestKind>(
+              key: const Key('manual-kind-field'),
+              initialValue: manualKind,
+              isExpanded: true,
+              isDense: false,
+              decoration: const InputDecoration(labelText: 'Test type'),
+              items: TTestKind.values
+                  .map(
+                    (kind) => DropdownMenuItem(
+                      value: kind,
+                      child: _KindDropdownLabel(kind: kind),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  onManualKindChanged(value);
+                }
+              },
+            ),
           ),
           const SizedBox(height: 14),
           _FieldRow(
@@ -2423,29 +2463,33 @@ class _ManualFormPanel extends StatelessWidget {
           ),
           _FieldRow(
             children: [
-              DropdownButtonFormField<ReportedPValueTail>(
-                initialValue: manualTail,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'p direction'),
-                items: const [
-                  DropdownMenuItem(
-                    value: ReportedPValueTail.twoTailed,
-                    child: Text('Two-tailed'),
-                  ),
-                  DropdownMenuItem(
-                    value: ReportedPValueTail.less,
-                    child: Text('Lower-tail'),
-                  ),
-                  DropdownMenuItem(
-                    value: ReportedPValueTail.greater,
-                    child: Text('Upper-tail'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    onManualTailChanged(value);
-                  }
-                },
+              _GuideProtected(
+                role: _GuideProtectedRole.interactive,
+                id: 'manual-tail-field',
+                child: DropdownButtonFormField<ReportedPValueTail>(
+                  initialValue: manualTail,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'p direction'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ReportedPValueTail.twoTailed,
+                      child: Text('Two-tailed'),
+                    ),
+                    DropdownMenuItem(
+                      value: ReportedPValueTail.less,
+                      child: Text('Lower-tail'),
+                    ),
+                    DropdownMenuItem(
+                      value: ReportedPValueTail.greater,
+                      child: Text('Upper-tail'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      onManualTailChanged(value);
+                    }
+                  },
+                ),
               ),
               _Field(
                 controller: confidenceController,
@@ -2848,7 +2892,7 @@ class _ValueSummary extends StatelessWidget {
     final pFailure = _firstFailureFor({'domain.p', 'p.t_df'});
     return _ResponsiveGrid(
       columnsWhenWide: 2,
-      minTileHeight: 190,
+      minTileHeight: 220,
       children: [
         _ValueCard(
           cardKey: const Key('validation-summary-t'),
@@ -3242,56 +3286,64 @@ class _ProseBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.42),
-        border: Border.all(color: colors.line),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colors.cardTitle,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: 'prose-$title',
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.42),
+          border: Border.all(color: colors.line),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GuideProtected(
+              role: _GuideProtectedRole.heading,
+              id: 'prose-heading-$title',
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: colors.cardTitle,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (reportText != null)
-            RichText(
-              text: TextSpan(
+            const SizedBox(height: 8),
+            if (reportText != null)
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    color: colors.cardText,
+                    fontFamily: 'Segoe UI',
+                    fontSize: 16.5,
+                    height: 1.72,
+                  ),
+                  children: [
+                    for (final run in reportText!.runs)
+                      TextSpan(
+                        text: run.text,
+                        style: run.italic
+                            ? const TextStyle(fontStyle: FontStyle.italic)
+                            : null,
+                      ),
+                  ],
+                ),
+              )
+            else
+              Text(
+                text ?? 'UNKNOWN',
                 style: TextStyle(
                   color: colors.cardText,
-                  fontFamily: 'Segoe UI',
                   fontSize: 16.5,
                   height: 1.72,
                 ),
-                children: [
-                  for (final run in reportText!.runs)
-                    TextSpan(
-                      text: run.text,
-                      style: run.italic
-                          ? const TextStyle(fontStyle: FontStyle.italic)
-                          : null,
-                    ),
-                ],
               ),
-            )
-          else
-            Text(
-              text ?? 'UNKNOWN',
-              style: TextStyle(
-                color: colors.cardText,
-                fontSize: 16.5,
-                height: 1.72,
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -3306,31 +3358,42 @@ class _ListBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.40),
-        border: Border.all(color: colors.line),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(color: colors.title, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          for (final item in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: 'list-$title',
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.40),
+          border: Border.all(color: colors.line),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GuideProtected(
+              role: _GuideProtectedRole.heading,
+              id: 'list-heading-$title',
               child: Text(
-                item,
-                style: TextStyle(color: colors.cardText, fontSize: 14),
+                title,
+                style: TextStyle(
+                  color: colors.title,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-        ],
+            const SizedBox(height: 8),
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  item,
+                  style: TextStyle(color: colors.cardText, fontSize: 14),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -3356,6 +3419,7 @@ class _ConfidenceIntervalChart extends StatelessWidget {
           ),
         ),
         _ChartFrame(
+          protectedId: 'ci-chart-frame',
           painter: _CiPainter(colors: colors, result: result),
           semanticsLabel: ci == null
               ? 'Confidence interval unavailable'
@@ -3416,6 +3480,7 @@ class _DistributionChart extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _ChartFrame(
+          protectedId: 'distribution-chart-frame',
           painter: _DistributionPainter(colors: colors, result: result),
           semanticsLabel: result == null
               ? 't distribution unavailable'
@@ -3427,27 +3492,39 @@ class _DistributionChart extends StatelessWidget {
 }
 
 class _ChartFrame extends StatelessWidget {
-  const _ChartFrame({required this.painter, required this.semanticsLabel});
+  const _ChartFrame({
+    required this.protectedId,
+    required this.painter,
+    required this.semanticsLabel,
+  });
 
+  final String protectedId;
   final CustomPainter painter;
   final String semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Semantics(
-      label: semanticsLabel,
-      image: true,
-      child: Container(
-        height: 250,
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.40),
-          border: Border.all(color: colors.line),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CustomPaint(painter: painter, child: const SizedBox.expand()),
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: protectedId,
+      child: Semantics(
+        label: semanticsLabel,
+        image: true,
+        child: Container(
+          height: 250,
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: 0.40),
+            border: Border.all(color: colors.line),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: CustomPaint(
+              painter: painter,
+              child: const SizedBox.expand(),
+            ),
+          ),
         ),
       ),
     );
@@ -3462,36 +3539,40 @@ class _ChartTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Row(
-      children: [
-        for (final item in values.entries) ...[
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colors.surface.withValues(alpha: 0.38),
-                border: Border.all(color: colors.line),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.key,
-                    style: TextStyle(
-                      color: colors.title,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: 'chart-table-${values.keys.join('-')}',
+      child: Row(
+        children: [
+          for (final item in values.entries) ...[
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: 0.38),
+                  border: Border.all(color: colors.line),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.key,
+                      style: TextStyle(
+                        color: colors.title,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  Text(item.value, style: TextStyle(color: colors.cardText)),
-                ],
+                    Text(item.value, style: TextStyle(color: colors.cardText)),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (item.key != values.keys.last) const SizedBox(width: 8),
+            if (item.key != values.keys.last) const SizedBox(width: 8),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -3723,14 +3804,18 @@ class _Field extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               )
             : null;
-        return TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: label,
-            enabledBorder: enabledBorder,
-            focusedBorder: focusedBorder,
+        return _GuideProtected(
+          role: _GuideProtectedRole.interactive,
+          id: 'field-$label',
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              enabledBorder: enabledBorder,
+              focusedBorder: focusedBorder,
+            ),
+            style: TextStyle(color: colors.fieldText),
           ),
-          style: TextStyle(color: colors.fieldText),
         );
       },
     );
@@ -3834,14 +3919,18 @@ class _PageHead extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              title,
-              key: Key('page-$title'),
-              style: TextStyle(
-                color: colors.title,
-                fontSize: compact ? 25 : 32,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
+            _GuideProtected(
+              role: _GuideProtectedRole.heading,
+              id: 'page-$title',
+              child: Text(
+                title,
+                key: Key('page-$title'),
+                style: TextStyle(
+                  color: colors.title,
+                  fontSize: compact ? 25 : 32,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -3925,12 +4014,12 @@ class _ScreenShellState extends State<_ScreenShell> {
           final horizontal = constraints.maxWidth < 720 ? 18.0 : 28.0;
           return SingleChildScrollView(
             controller: _controller,
-            padding: EdgeInsets.fromLTRB(horizontal, 68, horizontal, 46),
+            padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 46),
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: 1240,
-                  minHeight: math.max(0, constraints.maxHeight - 114),
+                  minHeight: math.max(0, constraints.maxHeight - 46),
                 ),
                 child: widget.child,
               ),
@@ -3957,13 +4046,17 @@ class _SectionTop extends StatelessWidget {
         final heading = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: colors.cardTitle,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                height: 1.18,
+            _GuideProtected(
+              role: _GuideProtectedRole.heading,
+              id: guide?.targetId ?? 'section-$title',
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: colors.cardTitle,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  height: 1.18,
+                ),
               ),
             ),
             if (body != null && body!.isNotEmpty) ...[
@@ -4208,11 +4301,15 @@ class _ChoiceCard extends StatelessWidget {
     );
 
     if (disabled) {
-      final card = Semantics(
-        button: true,
-        enabled: false,
-        label: '$title. $description. $status.',
-        child: ExcludeSemantics(child: ExcludeFocus(child: content)),
+      final card = _GuideProtected(
+        role: _GuideProtectedRole.primary,
+        id: guideTargetId ?? 'choice-$title',
+        child: Semantics(
+          button: true,
+          enabled: false,
+          label: '$title. $description. $status.',
+          child: ExcludeSemantics(child: ExcludeFocus(child: content)),
+        ),
       );
       final targetId = guideTargetId;
       if (targetId == null) {
@@ -4221,15 +4318,19 @@ class _ChoiceCard extends StatelessWidget {
       return _GuideTarget(id: targetId, child: card);
     }
 
-    final card = Semantics(
-      button: true,
-      enabled: true,
-      label: '$title. $description. $status.',
-      child: ExcludeSemantics(
-        child: _FocusableTap(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: content,
+    final card = _GuideProtected(
+      role: _GuideProtectedRole.interactive,
+      id: guideTargetId ?? 'choice-$title',
+      child: Semantics(
+        button: true,
+        enabled: true,
+        label: '$title. $description. $status.',
+        child: ExcludeSemantics(
+          child: _FocusableTap(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: content,
+          ),
         ),
       ),
     );
@@ -4435,15 +4536,19 @@ class _ActionButton extends StatelessWidget {
       ),
     );
 
-    return MergeSemantics(
-      child: Semantics(
-        button: true,
-        enabled: enabled,
-        hint: enabled ? null : disabledHint,
-        child: FilledButton(
-          onPressed: onPressed,
-          style: style,
-          child: Text(label, textAlign: TextAlign.center),
+    return _GuideProtected(
+      role: _GuideProtectedRole.interactive,
+      id: key ?? 'action-$label',
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          enabled: enabled,
+          hint: enabled ? null : disabledHint,
+          child: FilledButton(
+            onPressed: onPressed,
+            style: style,
+            child: Text(label, textAlign: TextAlign.center),
+          ),
         ),
       ),
     );
@@ -4588,27 +4693,35 @@ class _ReviewBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.42),
-        border: Border.all(color: colors.line),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colors.cardTitle,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: 'review-$title',
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.42),
+          border: Border.all(color: colors.line),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _GuideProtected(
+              role: _GuideProtectedRole.heading,
+              id: 'review-heading-$title',
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: colors.cardTitle,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
       ),
     );
   }
@@ -4667,74 +4780,78 @@ class _IssueRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.42),
-        border: Border.all(
-          color: _toneColor(colors, tone).withValues(alpha: 0.46),
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: 'issue-$field-$title',
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.42),
+          border: Border.all(
+            color: _toneColor(colors, tone).withValues(alpha: 0.46),
+          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final label = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _StatusLabel(
-                tone: tone,
-                text: _statusToneLabel(tone),
-                accent: _toneColor(colors, tone),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                field,
-                style: TextStyle(
-                  color: colors.title,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          );
-          final copy = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: colors.title,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                body,
-                style: TextStyle(
-                  color: colors.cardText,
-                  fontSize: 14,
-                  height: 1.45,
-                ),
-              ),
-            ],
-          );
-          if (constraints.maxWidth < 600) {
-            return Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final label = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [label, const SizedBox(height: 10), copy],
+              children: [
+                _StatusLabel(
+                  tone: tone,
+                  text: _statusToneLabel(tone),
+                  accent: _toneColor(colors, tone),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  field,
+                  style: TextStyle(
+                    color: colors.title,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: 150, child: label),
-              const SizedBox(width: 12),
-              Expanded(child: copy),
-            ],
-          );
-        },
+            final copy = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.title,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: TextStyle(
+                    color: colors.cardText,
+                    fontSize: 14,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            );
+            if (constraints.maxWidth < 600) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [label, const SizedBox(height: 10), copy],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 150, child: label),
+                const SizedBox(width: 12),
+                Expanded(child: copy),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -4758,37 +4875,41 @@ class _ValueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
-      key: cardKey,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.46),
-        border: Border.all(
-          color: _toneColor(colors, tone).withValues(alpha: 0.46),
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: cardKey ?? 'value-$label',
+      child: Container(
+        key: cardKey,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.46),
+          border: Border.all(
+            color: _toneColor(colors, tone).withValues(alpha: 0.46),
+          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _StatusLabel(
-            tone: tone,
-            text: _statusToneLabel(tone),
-            accent: _toneColor(colors, tone),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: TextStyle(
-              color: colors.title,
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              height: 1,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _StatusLabel(
+              tone: tone,
+              text: _statusToneLabel(tone),
+              accent: _toneColor(colors, tone),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(body, style: TextStyle(color: colors.cardText, fontSize: 14)),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              value,
+              style: TextStyle(
+                color: colors.title,
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(body, style: TextStyle(color: colors.cardText, fontSize: 14)),
+          ],
+        ),
       ),
     );
   }
@@ -4803,16 +4924,23 @@ class _NoticeBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _toneColor(colors, tone).withValues(alpha: 0.13),
-        border: Border.all(
-          color: _toneColor(colors, tone).withValues(alpha: 0.46),
+    return _GuideProtected(
+      role: _GuideProtectedRole.primary,
+      id: 'notice-$text',
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _toneColor(colors, tone).withValues(alpha: 0.13),
+          border: Border.all(
+            color: _toneColor(colors, tone).withValues(alpha: 0.46),
+          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-        borderRadius: BorderRadius.circular(12),
+        child: Text(
+          text,
+          style: TextStyle(color: colors.cardText, height: 1.4),
+        ),
       ),
-      child: Text(text, style: TextStyle(color: colors.cardText, height: 1.4)),
     );
   }
 }
@@ -4827,12 +4955,16 @@ class _Subhead extends StatelessWidget {
     final colors = _RqColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: colors.cardTitle,
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
+      child: _GuideProtected(
+        role: _GuideProtectedRole.heading,
+        id: 'subhead-$text',
+        child: Text(
+          text,
+          style: TextStyle(
+            color: colors.cardTitle,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );

@@ -7,6 +7,23 @@ const _guideSeenScreensPreferenceKey = 'resquill.guide.seenScreens';
 const _guidePulseCycles = 3;
 const _guidePulseDuration = Duration(milliseconds: 550);
 const _guidePulseTotal = Duration(milliseconds: _guidePulseCycles * 550);
+const _topControlsReservedExtent = 68.0;
+const _guideBubbleDesktopDockExtent = 300.0;
+const _guideBubbleMobileDockExtent = 250.0;
+
+@visibleForTesting
+const resQuillTopControlsReservedExtentForTesting = _topControlsReservedExtent;
+
+@visibleForTesting
+double resQuillGuideDockExtentForTesting(Size size) {
+  return _guideBubbleDockExtentFor(size);
+}
+
+double _guideBubbleDockExtentFor(Size size) {
+  return size.width <= 720
+      ? _guideBubbleMobileDockExtent
+      : _guideBubbleDesktopDockExtent;
+}
 
 enum _GuideSide { left, right, top, bottom }
 
@@ -239,6 +256,43 @@ List<_GuideStep> _guideStepsFor(_Screen screen) {
   return _guideStepsByScreen[screen] ?? const [];
 }
 
+@visibleForTesting
+Map<String, List<String>> resQuillGuideStepTargetsForTesting() {
+  return {
+    for (final entry in _guideStepsByScreen.entries)
+      entry.key.guideStorageId: [for (final step in entry.value) step.targetId],
+  };
+}
+
+enum _GuideProtectedRole { heading, interactive, primary }
+
+class _GuideProtected extends StatelessWidget {
+  const _GuideProtected({
+    required this.role,
+    required this.id,
+    required this.child,
+  });
+
+  final _GuideProtectedRole role;
+  final Object id;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key: ValueKey<String>(
+        'guide-protected-${role.name}-${_guideProtectedId(id)}',
+      ),
+      child: child,
+    );
+  }
+}
+
+String _guideProtectedId(Object id) {
+  final text = id is ValueKey<String> ? id.value : '$id';
+  return text.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]+'), '_');
+}
+
 class _GuideTargetRegistry {
   final Map<String, GlobalKey> _keys = <String, GlobalKey>{};
 
@@ -290,7 +344,7 @@ class _GuideTarget extends StatelessWidget {
   Widget build(BuildContext context) {
     return KeyedSubtree(
       key: _GuideScope.of(context).registry.keyFor(id),
-      child: child,
+      child: KeyedSubtree(key: ValueKey('guide-target-$id'), child: child),
     );
   }
 }
@@ -345,31 +399,35 @@ class _GuideButtonSkin extends StatelessWidget {
         final border = activePulse
             ? (colors.isDark ? Colors.white : colors.cyan)
             : colors.cyan;
-        return TextButton(
-          onPressed: onPressed,
-          style: ButtonStyle(
-            minimumSize: WidgetStateProperty.all(const Size(52, 30)),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            padding: WidgetStateProperty.all(
-              const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-            ),
-            shape: WidgetStateProperty.all(
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            backgroundColor: WidgetStateProperty.all(background),
-            foregroundColor: WidgetStateProperty.all(foreground),
-            side: WidgetStateProperty.all(
-              BorderSide(color: border, width: activePulse ? 2 : 1),
-            ),
-            textStyle: WidgetStateProperty.all(
-              const TextStyle(
-                fontFamily: 'Segoe UI',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
+        return _GuideProtected(
+          role: _GuideProtectedRole.interactive,
+          id: key ?? 'guide-button',
+          child: TextButton(
+            onPressed: onPressed,
+            style: ButtonStyle(
+              minimumSize: WidgetStateProperty.all(const Size(52, 30)),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              backgroundColor: WidgetStateProperty.all(background),
+              foregroundColor: WidgetStateProperty.all(foreground),
+              side: WidgetStateProperty.all(
+                BorderSide(color: border, width: activePulse ? 2 : 1),
+              ),
+              textStyle: WidgetStateProperty.all(
+                const TextStyle(
+                  fontFamily: 'Segoe UI',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
+            child: const Text('GUIDE'),
           ),
-          child: const Text('GUIDE'),
         );
       },
     );
@@ -485,6 +543,7 @@ class _GuideOverlay extends StatefulWidget {
   const _GuideOverlay({
     required this.registry,
     required this.session,
+    required this.reservedBottom,
     required this.onBack,
     required this.onNext,
     required this.onClose,
@@ -492,6 +551,7 @@ class _GuideOverlay extends StatefulWidget {
 
   final _GuideTargetRegistry registry;
   final _GuideSession? session;
+  final double reservedBottom;
   final VoidCallback onBack;
   final VoidCallback onNext;
   final VoidCallback onClose;
@@ -571,19 +631,32 @@ class _GuideOverlayState extends State<_GuideOverlay> {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final viewportSize = MediaQuery.sizeOf(context);
     final mobile = viewportSize.width <= 720;
-    final targetRender = targetContext.findRenderObject();
-    final tallTarget =
-        mobile &&
-        targetRender is RenderBox &&
-        targetRender.size.height > viewportSize.height * 0.56;
+    final overlayBox = context.findRenderObject();
+    final targetBox = targetContext.findRenderObject();
+    if (overlayBox is! RenderBox || targetBox is! RenderBox) {
+      return;
+    }
+    final origin = targetBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final rawRect = origin & targetBox.size;
+    final clipToContent =
+        step.targetId != 'guide_replay' && step.targetId != 'theme_toggle';
     if (scrollFirst && !_sameSession(_lastMeasuredSession, session)) {
-      final scrollAlignment = mobile
-          ? session.screen == _Screen.start && step.targetId == 'paste_output'
-                ? 0.78
-                : tallTarget
-                ? 0.68
-                : 0.38
-          : 0.5;
+      final visibleBounds = _guideVisibleBounds(
+        overlayBox.size,
+        mobile,
+        widget.reservedBottom,
+        clipToContent: clipToContent,
+      );
+      final targetIsVisible = _targetHasUsableVisibleArea(
+        rawRect,
+        visibleBounds,
+        mobile,
+      );
+      if (targetIsVisible) {
+        _measureTarget(scrollFirst: false);
+        return;
+      }
+      final targetAboveViewport = rawRect.top < visibleBounds.top;
       unawaited(
         Scrollable.ensureVisible(
           targetContext,
@@ -591,8 +664,10 @@ class _GuideOverlayState extends State<_GuideOverlay> {
               ? Duration.zero
               : const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          alignment: scrollAlignment,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+          alignment: targetAboveViewport ? 0.0 : 1.0,
+          alignmentPolicy: targetAboveViewport
+              ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
+              : ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
         ),
       );
       unawaited(
@@ -609,37 +684,35 @@ class _GuideOverlayState extends State<_GuideOverlay> {
     if (!_sameSession(session, widget.session)) {
       return;
     }
-    final overlayBox = context.findRenderObject();
-    final targetBox = targetContext.findRenderObject();
-    if (overlayBox is! RenderBox || targetBox is! RenderBox) {
-      return;
-    }
-    final origin = targetBox.localToGlobal(Offset.zero, ancestor: overlayBox);
-    final rawRect = origin & targetBox.size;
-    final nextRect = _expandedGuideRect(rawRect, overlayBox.size, mobile);
-    if (mobile && session.screen != _Screen.start && nextRect.top < 310) {
-      final scrollable = Scrollable.maybeOf(targetContext);
-      final position = scrollable?.position;
-      if (position != null && position.pixels > position.minScrollExtent) {
-        final adjustment = math.min(
-          310 - nextRect.top,
-          position.pixels - position.minScrollExtent,
-        );
-        if (adjustment > 1) {
-          position.jumpTo(position.pixels - adjustment);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _sameSession(session, widget.session)) {
-              _measureTarget(scrollFirst: false);
-            }
-          });
-          return;
-        }
-      }
-    }
+    final nextRect = _expandedGuideRect(
+      rawRect,
+      overlayBox.size,
+      mobile,
+      widget.reservedBottom,
+      clipToContent: clipToContent,
+    );
     setState(() {
       _targetRect = nextRect;
       _lastMeasuredSession = session;
     });
+  }
+
+  bool _targetHasUsableVisibleArea(
+    Rect rawRect,
+    Rect visibleBounds,
+    bool mobile,
+  ) {
+    if (!rawRect.overlaps(visibleBounds)) {
+      return false;
+    }
+    if (rawRect.top < visibleBounds.top - 0.5) {
+      return false;
+    }
+    final visibleTop = math.max(rawRect.top, visibleBounds.top);
+    final visibleBottom = math.min(rawRect.bottom, visibleBounds.bottom);
+    final visibleHeight = math.max(0.0, visibleBottom - visibleTop);
+    final neededHeight = math.min(rawRect.height, mobile ? 72.0 : 96.0);
+    return visibleHeight >= neededHeight;
   }
 
   _GuideStep _stepForSession(_GuideSession session) {
@@ -652,14 +725,28 @@ class _GuideOverlayState extends State<_GuideOverlay> {
         a?.singleTargetId == b?.singleTargetId;
   }
 
-  Rect _expandedGuideRect(Rect rawRect, Size overlaySize, bool mobile) {
-    final edge = mobile ? 8.0 : 10.0;
+  Rect _expandedGuideRect(
+    Rect rawRect,
+    Size overlaySize,
+    bool mobile,
+    double reservedBottom, {
+    required bool clipToContent,
+  }) {
     final pad = mobile ? 10.0 : 14.0;
+    final visibleBounds = _guideVisibleBounds(
+      overlaySize,
+      mobile,
+      reservedBottom,
+      clipToContent: clipToContent,
+    );
     var rect = rawRect;
-    if (mobile && rect.height > overlaySize.height * 0.56) {
+    if (clipToContent && rect.overlaps(visibleBounds)) {
+      rect = rect.intersect(visibleBounds);
+    }
+    if (rect.height > visibleBounds.height * 0.56) {
       final headerHeight = math.min(
         220.0,
-        math.max(120.0, overlaySize.height * 0.26),
+        math.max(120.0, visibleBounds.height * 0.26),
       );
       rect = Rect.fromLTRB(
         rect.left,
@@ -670,19 +757,44 @@ class _GuideOverlayState extends State<_GuideOverlay> {
     }
     final width = math.min(
       math.max(rect.width + pad * 2, 58.0),
-      math.max(58.0, overlaySize.width - edge * 2),
+      math.max(58.0, visibleBounds.width),
     );
     final height = math.min(
       math.max(rect.height + pad * 2, 54.0),
-      math.max(54.0, overlaySize.height - edge * 2),
+      math.max(54.0, visibleBounds.height),
     );
     final left = (rect.center.dx - width / 2)
-        .clamp(edge, math.max(edge, overlaySize.width - width - edge))
+        .clamp(
+          visibleBounds.left,
+          math.max(visibleBounds.left, visibleBounds.right - width),
+        )
         .toDouble();
     final top = (rect.center.dy - height / 2)
-        .clamp(edge, math.max(edge, overlaySize.height - height - edge))
+        .clamp(
+          visibleBounds.top,
+          math.max(visibleBounds.top, visibleBounds.bottom - height),
+        )
         .toDouble();
     return Rect.fromLTWH(left, top, width, height);
+  }
+
+  Rect _guideVisibleBounds(
+    Size overlaySize,
+    bool mobile,
+    double reservedBottom, {
+    required bool clipToContent,
+  }) {
+    final edge = mobile ? 8.0 : 10.0;
+    final contentBottom = math.max(
+      _topControlsReservedExtent + edge + 54,
+      overlaySize.height - reservedBottom - edge,
+    );
+    return Rect.fromLTRB(
+      edge,
+      clipToContent ? _topControlsReservedExtent + edge : edge,
+      overlaySize.width - edge,
+      contentBottom,
+    );
   }
 
   @override
@@ -705,6 +817,7 @@ class _GuideOverlayState extends State<_GuideOverlay> {
               _GuideScrim(targetRect: rect, onTap: widget.onClose),
               if (rect != null) ...[
                 Positioned.fromRect(
+                  key: const Key('guide-highlight'),
                   rect: rect,
                   child: IgnorePointer(
                     child: DecoratedBox(
@@ -722,6 +835,7 @@ class _GuideOverlayState extends State<_GuideOverlay> {
                   targetRect: rect,
                   side: step.side,
                   preferAbove: session.screen != _Screen.start,
+                  reservedBottom: widget.reservedBottom,
                 ),
                 child: _GuideBubble(
                   step: step,
@@ -813,11 +927,13 @@ class _GuideBubblePositionDelegate extends SingleChildLayoutDelegate {
     required this.targetRect,
     required this.side,
     required this.preferAbove,
+    required this.reservedBottom,
   });
 
   final Rect? targetRect;
   final _GuideSide side;
   final bool preferAbove;
+  final double reservedBottom;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
@@ -825,8 +941,15 @@ class _GuideBubblePositionDelegate extends SingleChildLayoutDelegate {
     const gap = 26.0;
     const preferredMinWidth = 300.0;
     var maxWidth = math.min(520.0, constraints.maxWidth - margin * 2);
+    final docked = reservedBottom > 0;
+    final maxHeight = docked
+        ? math.max(120.0, reservedBottom)
+        : math.max(120.0, constraints.maxHeight - margin * 2);
+    if (docked && constraints.maxWidth <= 720) {
+      maxWidth = math.max(220.0, constraints.maxWidth - margin * 2);
+    }
     final rect = targetRect;
-    if (rect != null && constraints.maxWidth > 720) {
+    if (!docked && rect != null && constraints.maxWidth > 720) {
       final leftSpace = rect.left - gap - margin;
       final rightSpace = constraints.maxWidth - rect.right - gap - margin;
       final requestedSpace = switch (side) {
@@ -847,6 +970,7 @@ class _GuideBubblePositionDelegate extends SingleChildLayoutDelegate {
     return BoxConstraints(
       minWidth: math.min(preferredMinWidth, maxWidth),
       maxWidth: maxWidth,
+      maxHeight: maxHeight,
     );
   }
 
@@ -860,6 +984,20 @@ class _GuideBubblePositionDelegate extends SingleChildLayoutDelegate {
         (size.width - childSize.width) / 2,
         (size.height - childSize.height) / 2,
       );
+    }
+
+    if (reservedBottom > 0) {
+      final dockTop = size.height - reservedBottom;
+      final left = ((size.width - childSize.width) / 2)
+          .clamp(
+            margin,
+            math.max(margin, size.width - childSize.width - margin),
+          )
+          .toDouble();
+      final top = (dockTop + (reservedBottom - childSize.height) / 2)
+          .clamp(dockTop, math.max(dockTop, size.height - childSize.height))
+          .toDouble();
+      return Offset(left, top);
     }
 
     Offset placed(_GuideSide requestedSide) {
@@ -924,7 +1062,8 @@ class _GuideBubblePositionDelegate extends SingleChildLayoutDelegate {
   bool shouldRelayout(covariant _GuideBubblePositionDelegate oldDelegate) {
     return targetRect != oldDelegate.targetRect ||
         side != oldDelegate.side ||
-        preferAbove != oldDelegate.preferAbove;
+        preferAbove != oldDelegate.preferAbove ||
+        reservedBottom != oldDelegate.reservedBottom;
   }
 }
 
@@ -965,85 +1104,106 @@ class _GuideBubble extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, _) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  step.title,
-                  key: const Key('guide-title'),
-                  style: TextStyle(
-                    color: colors.title,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    height: 1.18,
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              step.title,
+                              key: const Key('guide-title'),
+                              style: TextStyle(
+                                color: colors.title,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                height: 1.18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            singleItemMode
+                                ? 'Card guide'
+                                : '${index + 1} of $total',
+                            key: const Key('guide-count'),
+                            style: TextStyle(
+                              color: colors.muted,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        step.body,
+                        key: const Key('guide-body'),
+                        style: TextStyle(
+                          color: colors.cardText,
+                          fontSize: 15,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (step.items.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        for (final item in step.items)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '- $item',
+                              style: TextStyle(
+                                color: colors.cardText,
+                                fontSize: 14.2,
+                                height: 1.32,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                singleItemMode ? 'Card guide' : '${index + 1} of $total',
-                key: const Key('guide-count'),
-                style: TextStyle(
-                  color: colors.muted,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            step.body,
-            key: const Key('guide-body'),
-            style: TextStyle(color: colors.cardText, fontSize: 15, height: 1.4),
-          ),
-          if (step.items.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            for (final item in step.items)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '- $item',
-                  style: TextStyle(
-                    color: colors.cardText,
-                    fontSize: 14.2,
-                    height: 1.32,
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.end,
+                children: [
+                  _GuideControlButton(
+                    key: const Key('guide-skip'),
+                    label: 'SKIP',
+                    onPressed: onClose,
                   ),
-                ),
+                  if (!singleItemMode)
+                    _GuideControlButton(
+                      key: const Key('guide-back'),
+                      label: 'BACK',
+                      onPressed: index == 0 ? null : onBack,
+                    ),
+                  if (!singleItemMode)
+                    _GuideControlButton(
+                      key: const Key('guide-next'),
+                      label: 'NEXT TIP',
+                      primary: true,
+                      onPressed: onNext,
+                    ),
+                ],
               ),
-          ],
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.end,
-            children: [
-              _GuideControlButton(
-                key: const Key('guide-skip'),
-                label: 'SKIP',
-                onPressed: onClose,
-              ),
-              if (!singleItemMode)
-                _GuideControlButton(
-                  key: const Key('guide-back'),
-                  label: 'BACK',
-                  onPressed: index == 0 ? null : onBack,
-                ),
-              if (!singleItemMode)
-                _GuideControlButton(
-                  key: const Key('guide-next'),
-                  label: 'NEXT TIP',
-                  primary: true,
-                  onPressed: onNext,
-                ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
