@@ -2908,9 +2908,9 @@ class _ValueSummary extends StatelessWidget {
               ? 't not supplied'
               : 't = ${_fmt(reportedT.value)}',
           body: tFailure != null
-              ? 'Problem row: ${tFailure.title}.'
+              ? _failedValueBody(tFailure)
               : tRelatedFailure != null
-              ? 'Used in failing row: ${tRelatedFailure.title}.'
+              ? _relatedFailureBody(tRelatedFailure)
               : reportedT == null
               ? 'No reported t to check.'
               : result == null
@@ -2931,9 +2931,9 @@ class _ValueSummary extends StatelessWidget {
               ? 'df not supplied'
               : 'df = ${_fmt(reportedDf.value)}',
           body: dfFailure != null
-              ? 'Problem row: ${dfFailure.title}.'
+              ? _failedValueBody(dfFailure)
               : dfRelatedFailure != null
-              ? 'Used in failing row: ${dfRelatedFailure.title}.'
+              ? _relatedFailureBody(dfRelatedFailure)
               : reportedDf == null
               ? 'No reported df to check.'
               : result?.kind == TTestKind.independentWelch
@@ -2954,7 +2954,7 @@ class _ValueSummary extends StatelessWidget {
               ? 'p not supplied'
               : 'p ${_relationSymbol(reportedP.relation)} ${_fmt(reportedP.value)}',
           body: pFailure != null
-              ? 'Problem row: ${pFailure.title}.'
+              ? _failedValueBody(pFailure)
               : reportedP == null
               ? 'No reported p to check.'
               : reportedP.relation == ReportedRelation.lessThan
@@ -2979,6 +2979,43 @@ class _ValueSummary extends StatelessWidget {
       }
     }
     return null;
+  }
+
+  static String _failedValueBody(ValidationCheck check) {
+    final body = switch (check.id) {
+      'domain.p' => 'Outside 0 to 1.',
+      'df.plausibility' => 'Does not match selected test.',
+      'p.t_df' => 'Does not fit t and df.',
+      't.descriptives' => 'Does not match descriptives.',
+      _ => check.explanation,
+    };
+    return '$body${_calculatedValueSuffix(check)}';
+  }
+
+  static String _relatedFailureBody(ValidationCheck check) {
+    return switch (check.id) {
+      'ci.diff_se' => 'Used in failed check: CI inputs.',
+      'ci.lower' => 'Used in failed check: lower CI against difference and SE.',
+      'ci.upper' => 'Used in failed check: upper CI against difference and SE.',
+      'p.t_df' => 'Used in failed check: p against t and df.',
+      _ => 'Used in failed check.',
+    };
+  }
+
+  static String _calculatedValueSuffix(ValidationCheck check) {
+    final recomputed = check.recomputed;
+    if (recomputed == null) {
+      return '';
+    }
+    return ' Calculated: ${_fmtCardCalculated(recomputed)}.';
+  }
+
+  static String _fmtCardCalculated(double value) {
+    final formatted = _fmt(value);
+    if (!formatted.contains('.')) {
+      return formatted;
+    }
+    return formatted.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 }
 

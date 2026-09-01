@@ -63,6 +63,27 @@ void main() {
       'p < .001, mean difference = 9.00, SE = 2.0737, '
       '95% CI [4.83, 13.17].';
 
+  const invalidPApaPaste =
+      'Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and '
+      'Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a '
+      'two-tailed Welch independent-samples t test, t(48.80) = 4.34, '
+      'p = 1.20, mean difference = 9.00, SE = 2.0737, '
+      '95% CI [4.83, 13.17].';
+
+  const badDfApaPaste =
+      'Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and '
+      'Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a '
+      'two-tailed Welch independent-samples t test, t(40) = 4.34, '
+      'p < .001, mean difference = 9.00, SE = 2.0737, '
+      '95% CI [4.83, 13.17].';
+
+  const badCiApaPaste =
+      'Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and '
+      'Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a '
+      'two-tailed Welch independent-samples t test, t(48.80) = 4.34, '
+      'p < .001, mean difference = 9.00, SE = 2.0737, '
+      '95% CI [1.00, 2.00].';
+
   setUp(_mockAllGuideScreensSeen);
 
   testWidgets('new bundled example assets match source bytes', (tester) async {
@@ -250,7 +271,7 @@ void main() {
     expect(
       find.descendant(
         of: pTile,
-        matching: find.text('Problem row: Reported p matches t and df.'),
+        matching: find.text('Does not fit t and df. Calculated: 0.322.'),
       ),
       findsOneWidget,
     );
@@ -267,13 +288,41 @@ void main() {
     expect(
       find.descendant(
         of: dfTile,
-        matching: find.text(
-          'Used in failing row: Reported p matches t and df.',
-        ),
+        matching: find.text('Used in failed check: p against t and df.'),
       ),
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'warning and error value cards do not use affirmative matches copy',
+    (tester) async {
+      final cases = [
+        failingApaPaste,
+        invalidPApaPaste,
+        badDfApaPaste,
+        badCiApaPaste,
+      ];
+
+      for (final paste in cases) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        await _setDesktop(tester);
+        await tester.pumpWidget(const MainApp());
+        await _pasteAndReview(tester, paste);
+
+        await tester.ensureVisible(
+          find.byKey(const Key('confirm-detected-values')),
+        );
+        await tester.tap(find.byKey(const Key('confirm-detected-values')));
+        await tester.pumpAndSettle();
+
+        for (final key in _validationSummaryCardKeys) {
+          _expectNoAffirmativeMatchesUnderWarningOrError(tester, key);
+        }
+      }
+    },
+  );
 
   testWidgets('paste ambiguity cannot proceed until resolved', (tester) async {
     await _setDesktop(tester);
@@ -1006,6 +1055,43 @@ Rect? _rectIntersection(Rect a, Rect b) {
     return null;
   }
   return Rect.fromLTRB(left, top, right, bottom);
+}
+
+const _validationSummaryCardKeys = [
+  Key('validation-summary-t'),
+  Key('validation-summary-df'),
+  Key('validation-summary-p'),
+  Key('validation-summary-fails'),
+];
+
+void _expectNoAffirmativeMatchesUnderWarningOrError(
+  WidgetTester tester,
+  Key key,
+) {
+  final card = find.byKey(key);
+  expect(card, findsOneWidget);
+  final hasWarningOrError =
+      find
+          .descendant(of: card, matching: find.text('Warning'))
+          .evaluate()
+          .isNotEmpty ||
+      find
+          .descendant(of: card, matching: find.text('Error'))
+          .evaluate()
+          .isNotEmpty;
+  if (!hasWarningOrError) {
+    return;
+  }
+
+  final cardText = tester
+      .widgetList<Text>(find.descendant(of: card, matching: find.byType(Text)))
+      .map((widget) => widget.data ?? widget.textSpan?.toPlainText() ?? '')
+      .join('\n');
+  expect(
+    RegExp(r'\bmatches\b', caseSensitive: false).hasMatch(cardText),
+    isFalse,
+    reason: cardText,
+  );
 }
 
 Future<void> _pasteAndReview(WidgetTester tester, String paste) async {
