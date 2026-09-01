@@ -1308,6 +1308,7 @@ class _StartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ScreenShell(
+      screen: _Screen.start,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= 980;
@@ -1577,6 +1578,7 @@ class _SelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
     return _ScreenShell(
+      screen: _Screen.selection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1748,6 +1750,7 @@ class _InputScreen extends StatelessWidget {
       confirmedPasteTail: confirmedPasteTail,
     );
     return _ScreenShell(
+      screen: _Screen.input,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2642,13 +2645,16 @@ class _ValidationScreen extends StatelessWidget {
         .where((check) => check.status == ValidationStatus.fail)
         .toList();
     return _ScreenShell(
+      screen: _Screen.validation,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(
             kicker: 'Check',
             title: 'Check the numbers.',
-            body: 'Fix failed rows before generating the report.',
+            body: _hasFailures
+                ? 'Fix failed rows before generating the report.'
+                : 'No problems found. Generate a report when ready.',
             backLabel: 'Back to input',
             onBack: onBack,
           ),
@@ -3021,6 +3027,7 @@ class _ReportScreen extends StatelessWidget {
     final colors = _RqColors.of(context);
     final output = report;
     return _ScreenShell(
+      screen: _Screen.report,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -3875,10 +3882,40 @@ class _PageHead extends StatelessWidget {
   }
 }
 
-class _ScreenShell extends StatelessWidget {
-  const _ScreenShell({required this.child});
+class _ScreenShell extends StatefulWidget {
+  const _ScreenShell({required this.screen, required this.child});
 
+  final _Screen screen;
   final Widget child;
+
+  @override
+  State<_ScreenShell> createState() => _ScreenShellState();
+}
+
+class _ScreenShellState extends State<_ScreenShell> {
+  final _controller = ScrollController(keepScrollOffset: false);
+
+  @override
+  void didUpdateWidget(covariant _ScreenShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.screen != widget.screen) {
+      _jumpToTopAfterBuild();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _jumpToTopAfterBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.hasClients) {
+        _controller.jumpTo(0);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3887,6 +3924,7 @@ class _ScreenShell extends StatelessWidget {
         builder: (context, constraints) {
           final horizontal = constraints.maxWidth < 720 ? 18.0 : 28.0;
           return SingleChildScrollView(
+            controller: _controller,
             padding: EdgeInsets.fromLTRB(horizontal, 68, horizontal, 46),
             child: Center(
               child: ConstrainedBox(
@@ -3894,7 +3932,7 @@ class _ScreenShell extends StatelessWidget {
                   maxWidth: 1240,
                   minHeight: math.max(0, constraints.maxHeight - 114),
                 ),
-                child: child,
+                child: widget.child,
               ),
             ),
           );

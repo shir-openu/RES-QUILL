@@ -441,11 +441,16 @@ class TTestValidator {
         ReportedPValueTail.less => cdf,
         ReportedPValueTail.greater => clampProbability(1 - cdf),
       };
+      final roundedInputsTolerance = _pToleranceFromRoundedTAndDf(
+        input,
+        recomputed,
+      );
       return _compare(
         id: 'p.t_df',
         title: 'Reported p matches t and df',
         recomputed: recomputed,
         reported: input.reportedP!,
+        minimumTolerance: roundedInputsTolerance,
         passExplanation: 'The reported p matches the reported t and df.',
         failExplanation: 'The reported p does not match the reported t and df.',
       );
@@ -458,6 +463,64 @@ class TTestValidator {
         explanation: error.message,
       );
     }
+  }
+
+  static double _pToleranceFromRoundedTAndDf(
+    TTestValidationInput input,
+    double recomputed,
+  ) {
+    final reportedT = input.reportedT;
+    final reportedDf = input.reportedDegreesOfFreedom;
+    final reportedP = input.reportedP;
+    if (reportedT == null || reportedDf == null || reportedP == null) {
+      return 0;
+    }
+    if (reportedT.relation != ReportedRelation.equalRounded ||
+        reportedDf.relation != ReportedRelation.equalRounded ||
+        reportedP.relation != ReportedRelation.equalRounded) {
+      return 0;
+    }
+
+    final tValues = [
+      reportedT.value - reportedT.tolerance,
+      reportedT.value + reportedT.tolerance,
+    ];
+    final dfValues = [
+      math.max(1e-12, reportedDf.value - reportedDf.tolerance),
+      reportedDf.value + reportedDf.tolerance,
+    ];
+    var roundingSpread = 0.0;
+    for (final statistic in tValues) {
+      for (final df in dfValues) {
+        final p = _pFromStatisticAndDf(
+          statistic: statistic,
+          df: df,
+          tail: input.reportedPValueTail,
+        );
+        roundingSpread = math.max(roundingSpread, (p - recomputed).abs());
+      }
+    }
+    if (roundingSpread == 0) {
+      return 0;
+    }
+    return roundingSpread + reportedP.tolerance;
+  }
+
+  static double _pFromStatisticAndDf({
+    required double statistic,
+    required double df,
+    required ReportedPValueTail tail,
+  }) {
+    final distribution = TDistribution(df);
+    final cdf = distribution.cdf(statistic);
+    return switch (tail) {
+      ReportedPValueTail.twoTailed => clampProbability(
+        2 * math.min(cdf, 1 - cdf),
+      ),
+      ReportedPValueTail.oneTailedObservedDirection => math.min(cdf, 1 - cdf),
+      ReportedPValueTail.less => cdf,
+      ReportedPValueTail.greater => clampProbability(1 - cdf),
+    };
   }
 
   static List<ValidationCheck> _ciMatchesDifferenceAndSe(

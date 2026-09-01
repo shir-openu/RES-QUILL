@@ -74,6 +74,52 @@ void main() {
       expect(checkById(checks, 'p.t_df').status, ValidationStatus.fail);
     });
 
+    test(
+      'accepts p from unrounded values when reported t and df are rounded',
+      () {
+        final checks = TTestValidator.validate(
+          TTestValidationInput(
+            kind: TTestKind.independentWelch,
+            first: ReportedDescriptives(
+              label: 'Practice',
+              n: 24,
+              mean: 57.2205,
+              standardDeviation: 12.907592557866561,
+            ),
+            second: ReportedDescriptives(
+              label: 'Control',
+              n: 27,
+              mean: 50,
+              standardDeviation: 12.753858230198336,
+            ),
+            reportedT: ReportedValue(value: 2.0052, decimalPlaces: 4),
+            reportedDegreesOfFreedom: ReportedValue(
+              value: 48.158,
+              decimalPlaces: 3,
+            ),
+            reportedP: ReportedValue(value: 0.050583, decimalPlaces: 6),
+            reportedMeanDifference: ReportedValue(
+              value: 7.2205,
+              decimalPlaces: 4,
+            ),
+            reportedStandardError: ReportedValue(
+              value: 3.6009,
+              decimalPlaces: 4,
+            ),
+            reportedCiLower: ReportedValue(value: -0.019, decimalPlaces: 3),
+            reportedCiUpper: ReportedValue(value: 14.460, decimalPlaces: 3),
+          ),
+        );
+
+        final pCheck = checkById(checks, 'p.t_df');
+        expect(pCheck.status, ValidationStatus.pass);
+        expect(
+          pCheck.tolerance,
+          startsWith('reported inputs were rounded, so tolerance is +/- '),
+        );
+      },
+    );
+
     test('flags CI mismatched with mean difference and SE', () {
       final checks = TTestValidator.validate(
         validStudentInput(
