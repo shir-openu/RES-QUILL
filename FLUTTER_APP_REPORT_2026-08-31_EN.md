@@ -255,7 +255,20 @@ Source:
 
 Change:
 - The manual selection cards, manual test-type dropdown, and SPSS both-rows ambiguity choices now use `SPSS row: Equal variances assumed` for Student and `SPSS row: Equal variances not assumed` for Welch.
-- No guide step was added, and the start headline remains `Paste t-test output. Get APA wording.`
+- No guide step was added, and the start headline was left unchanged at that point.
+
+## 2026-09-01 - start headline set to the brief
+
+Shir ruled on the headline: use the one specified in `MESSAGE_TO_CLAUDE_ON_30_AUG_2026.txt`.
+
+Change:
+- Headline is now `Turn statistical output into a clear, report-ready result.`
+- The line below it is now the brief's sub-line, `Paste or enter key values, understand the result, check inconsistencies, and generate clear academic wording.`, replacing `Start with your SPSS table or APA sentence.` which named only two of the five supported formats.
+- The headline is longer, so it is sized by available width - 30 / 26 / 22 - and the surrounding spacing was tightened. Without this the panel grew tall enough to push the three action buttons, and the guide's first tip, out of a 390-wide viewport; eight tests caught that.
+
+Verification:
+- `flutter analyze`: no issues. `flutter test`: 159 passed, 0 failed, including the T45 guide geometry test at both widths.
+- Captures read at 1440x1000 and 390x900 in both themes: `captures/headline_*_start.png`. Headline, sub-line and all three actions visible; nothing occluded.
 
 Verification:
 - `C:\flutter\bin\dart.bat format --set-exit-if-changed lib test tool`: passed, 0 files changed.

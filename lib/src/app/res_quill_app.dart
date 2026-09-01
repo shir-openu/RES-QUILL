@@ -1399,26 +1399,40 @@ class _BrandCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 52),
+          const SizedBox(height: 18),
           _GuideProtected(
             role: _GuideProtectedRole.heading,
             id: 'start-headline',
-            child: Text(
-              'Paste t-test output. Get APA wording.',
-              key: const Key('start-headline'),
-              style: TextStyle(
-                color: colors.cardTitle,
-                fontSize: 40,
-                fontWeight: FontWeight.w800,
-                height: 1.05,
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // The headline is long, so it has to shrink on narrow panels;
+                // otherwise it grows tall enough to push the actions, and the
+                // guide's first tip, out of a phone viewport.
+                final width = constraints.maxWidth;
+                final fontSize = width < 340
+                    ? 22.0
+                    : width < 460
+                    ? 26.0
+                    : 30.0;
+                return Text(
+                  'Turn statistical output into a clear, report-ready result.',
+                  key: const Key('start-headline'),
+                  style: TextStyle(
+                    color: colors.cardTitle,
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 18),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Text(
-              'Start with your SPSS table or APA sentence.',
+              'Paste or enter key values, understand the result, check '
+              'inconsistencies, and generate clear academic wording.',
               style: TextStyle(
                 color: colors.cardText,
                 fontSize: 16.5,
@@ -1439,7 +1453,7 @@ class _BrandCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 22),
           LayoutBuilder(
             builder: (context, constraints) {
               final actions = [

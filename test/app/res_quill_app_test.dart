@@ -156,7 +156,10 @@ void main() {
     await tester.tap(find.byKey(const Key('area-relationships')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Paste t-test output. Get APA wording.'), findsOneWidget);
+    expect(
+      find.text('Turn statistical output into a clear, report-ready result.'),
+      findsOneWidget,
+    );
     expect(
       find.text('Use this only when typing values by hand.'),
       findsNothing,
