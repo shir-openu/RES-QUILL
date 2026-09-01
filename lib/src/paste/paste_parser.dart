@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../spss_row_labels.dart';
 import '../stats/stats.dart';
 import 'paste_result.dart';
 
@@ -65,8 +66,8 @@ class TTestPasteParser {
       return PasteTTestCandidate(
         kind: row.kind,
         label: row.kind == TTestKind.independentStudent
-            ? 'Equal variances assumed'
-            : 'Equal variances not assumed',
+            ? SpssIndependentRowLabels.student
+            : SpssIndependentRowLabels.welch,
         fields: [...commonFields, ...row.fields],
         reportedPValueTail: row.tail,
         selectedByText: selectedKind == row.kind || parsedRows.rows.length == 1,

@@ -159,6 +159,29 @@ void main() {
       );
       expect(result.missingRequiredFields, isEmpty);
     });
+
+    test('SPSS independent row names are present in choice labels', () {
+      final fixture = fixtures.singleWhere(
+        (item) => item.id == 'SPSS_IND03_BOTH_ROWS_AMBIGUOUS',
+      );
+      final result = TTestPasteParser.parse(fixture.input);
+
+      expect(result.status, PasteParseStatus.needsConfirmation);
+      expect(
+        result.candidates.map((candidate) => candidate.label),
+        containsAll([
+          'SPSS row: Equal variances assumed',
+          'SPSS row: Equal variances not assumed',
+        ]),
+      );
+      expect(
+        result.ambiguities.single.candidateLabels,
+        containsAll([
+          'SPSS row: Equal variances assumed',
+          'SPSS row: Equal variances not assumed',
+        ]),
+      );
+    });
   });
 }
 

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../app_constants.dart';
 import '../paste/paste.dart';
 import '../report/report.dart';
+import '../spss_row_labels.dart';
 import '../stats/stats.dart';
 import 'sample_folder_opener.dart';
 
@@ -1594,8 +1595,8 @@ class _SelectionScreen extends StatelessWidget {
                 accent: colors.cardA,
                 status: 'Type values',
                 statusTone: _StatusTone.accepted,
-                title: 'Equal variances assumed',
-                description: 'The SPSS Student row',
+                title: SpssIndependentRowLabels.student,
+                description: 'Student t-test',
                 bars: const [0.72, 0.46, 0.62],
                 guideTargetId: 'student_test_path',
                 guideScreen: _Screen.selection,
@@ -1605,8 +1606,8 @@ class _SelectionScreen extends StatelessWidget {
                 accent: colors.cardB,
                 status: 'Type values',
                 statusTone: _StatusTone.warning,
-                title: 'Equal variances not assumed',
-                description: 'The SPSS Welch row',
+                title: SpssIndependentRowLabels.welch,
+                description: 'Welch t-test',
                 bars: const [0.84, 0.58, 0.70],
                 guideTargetId: 'welch_test_path',
                 guideScreen: _Screen.selection,
@@ -5048,8 +5049,8 @@ String _statusLabel(ValidationStatus status) {
 
 String _kindLabel(TTestKind kind) {
   return switch (kind) {
-    TTestKind.independentStudent => 'Equal variances assumed',
-    TTestKind.independentWelch => 'Equal variances not assumed',
+    TTestKind.independentStudent => SpssIndependentRowLabels.student,
+    TTestKind.independentWelch => SpssIndependentRowLabels.welch,
     TTestKind.pairedSamples => 'Paired samples',
     TTestKind.oneSample => 'One sample',
   };

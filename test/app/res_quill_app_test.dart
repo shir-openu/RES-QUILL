@@ -323,6 +323,8 @@ void main() {
       find.text('SPSS has both rows. Choose the row your assignment uses.'),
       findsOneWidget,
     );
+    expect(find.text('SPSS row: Equal variances assumed'), findsOneWidget);
+    expect(find.text('SPSS row: Equal variances not assumed'), findsWidgets);
     expect(
       find.text(
         "Student row. Levene's Sig. = 0.675; with .05 rule, SPSS points to this row.",
@@ -544,10 +546,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Type values'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Equal variances assumed').first);
+    expect(find.text('SPSS row: Equal variances assumed'), findsOneWidget);
+    expect(find.text('SPSS row: Equal variances not assumed'), findsOneWidget);
+
+    await tester.tap(find.text('SPSS row: Equal variances assumed').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Type values from one output row.'), findsOneWidget);
+    expect(find.text('SPSS row: Equal variances assumed'), findsOneWidget);
     expect(find.text('Alpha (course, usually .05)'), findsOneWidget);
     expect(find.text('p direction'), findsOneWidget);
     expect(find.text('CI level (usually .95)'), findsOneWidget);

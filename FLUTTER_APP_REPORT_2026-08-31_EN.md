@@ -247,3 +247,18 @@ Verification:
 - `flutter test`: passed, 152 passed and 0 failed.
 - `flutter test tool\verify\t39_r_asset_app_test.dart`: passed. The bundled R Welch example reached the report after entering N `24`, SD `10.361928`, N `27`, and SD `14.005195`.
 - T39 app/scipy values: t `3.286242536229062`, df `47.51367597657565`, p `0.0019131042118096797`; CI `[4.3685783516350165, 18.14962164836499]`.
+
+## T41 SPSS Row Labels
+
+Source:
+- `ONBOARDING_DESIGN_2026-09-01_v7_EN.md` names the Student/Welch SPSS independent-samples row decision as the worst sticking point for a psychology student.
+
+Change:
+- The manual selection cards, manual test-type dropdown, and SPSS both-rows ambiguity choices now use `SPSS row: Equal variances assumed` for Student and `SPSS row: Equal variances not assumed` for Welch.
+- No guide step was added, and the start headline remains `Paste t-test output. Get APA wording.`
+
+Verification:
+- `C:\flutter\bin\dart.bat format --set-exit-if-changed lib test tool`: passed, 0 files changed.
+- `C:\flutter\bin\flutter.bat analyze`: passed, no issues found.
+- `C:\flutter\bin\flutter.bat test`: passed, 154 passed and 0 failed.
+- Fresh Chrome CDP captures from the rebuilt web app: `captures\t41_selection_desktop_1440x1000.png` at 1440x1000, `captures\t41_selection_mobile_390x900.png` at 390x900, `captures\t41_ambiguity_desktop_1440x1000.png` at 1440x1000, and `captures\t41_ambiguity_mobile_390x900.png` at 390x900.
