@@ -2892,7 +2892,8 @@ class _ValueSummary extends StatelessWidget {
     final pFailure = _firstFailureFor({'domain.p', 'p.t_df'});
     return _ResponsiveGrid(
       columnsWhenWide: 2,
-      minTileHeight: 220,
+      minTileHeight: 132,
+      fitContent: true,
       children: [
         _ValueCard(
           cardKey: const Key('validation-summary-t'),
@@ -4183,17 +4184,59 @@ class _ResponsiveGrid extends StatelessWidget {
     required this.children,
     required this.minTileHeight,
     this.columnsWhenWide = 2,
+    this.fitContent = false,
   });
 
   final List<Widget> children;
   final double minTileHeight;
   final int columnsWhenWide;
+  final bool fitContent;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth < 720 ? 1 : columnsWhenWide;
+        if (fitContent) {
+          final rows = <Widget>[];
+          for (var start = 0; start < children.length; start += columns) {
+            final end = math.min(start + columns, children.length);
+            final rowChildren = children.sublist(start, end);
+            rows.add(
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < columns; index += 1) ...[
+                      Expanded(
+                        child: index < rowChildren.length
+                            ? ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: minTileHeight,
+                                ),
+                                child: rowChildren[index],
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      if (index != columns - 1) const SizedBox(width: 18),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < rows.length; index += 1) ...[
+                rows[index],
+                if (index != rows.length - 1) const SizedBox(height: 18),
+              ],
+            ],
+          );
+        }
+
         return GridView.count(
           crossAxisCount: columns,
           mainAxisSpacing: 18,

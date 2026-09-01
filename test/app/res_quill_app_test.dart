@@ -294,6 +294,36 @@ void main() {
     );
   });
 
+  testWidgets('validation value cards are compact and equal height', (
+    tester,
+  ) async {
+    const surfaceSizes = [Size(1440, 1000), Size(390, 900)];
+
+    for (final surfaceSize in surfaceSizes) {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await _setSurface(tester, surfaceSize);
+      await tester.pumpWidget(const MainApp());
+      await _pasteAndReview(tester, failingApaPaste);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('confirm-detected-values')),
+      );
+      await tester.tap(find.byKey(const Key('confirm-detected-values')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('validation-summary-t')));
+      await tester.pumpAndSettle();
+
+      final heights = [
+        for (final key in _validationSummaryCardKeys)
+          tester.getSize(find.byKey(key)).height,
+      ];
+      for (final height in heights) {
+        expect(height, lessThan(220));
+      }
+    }
+  });
+
   testWidgets(
     'warning and error value cards do not use affirmative matches copy',
     (tester) async {

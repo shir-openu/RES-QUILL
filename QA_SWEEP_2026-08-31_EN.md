@@ -157,3 +157,40 @@ The two previous blockers are cleared. `spss_independent_samples.txt` and `apa_s
 8. Res-Quill has no accounts or sign-in.
 
 App communication: the main statistical limits are stated on the start screen. The raw CSV/Excel boundary is also stated in the input help dialog and refusal message. Desktop practice uses exported paste-text examples only.
+
+## UI STATE AS OF 2026-09-01
+
+Reviewed by Claude from rendered captures, not from code inspection.
+
+All five screens - start, selection, input, validation, report - were captured in both
+themes at 1440x1000 and 390x900, twenty captures, and all twenty were opened and read.
+
+Fixed on 2026-09-01:
+
+1. The guide tip card occluded headings, controls or primary content on every screen. It is
+   now placed by a single rule - a reserved dock with a clipped content viewport - rather
+   than by per-screen special cases. Covered by a geometry test over 5 screens, 19 steps and
+   2 widths.
+2. The report screen's top navigation collided with the confidence interval chart labels.
+3. Nine validation value-card strings named the check instead of its outcome, so a card
+   could show an Error badge above a sentence reading "matches the descriptive statistics".
+   Failing cards now state the outcome and the calculated value. Covered by a test that
+   rejects an error or warning badge paired with an affirmative "matches" sentence.
+4. Validation value cards were roughly three times taller than their content, which forced
+   scrolling past near-empty boxes on mobile. They now fit their content.
+5. Reported t and df are rounded in real output, which could falsely fail the p check near
+   the .05 boundary. Validation tolerance now accounts for the rounding of the reported
+   inputs.
+
+Checked and found clean: no developer-facing identifiers on screen, no raw float noise, no
+pale-on-pale text in BRIGHT VIEW.
+
+Report wording was checked against four independently computed cases, including a Welch
+result at p = .051 with a confidence interval that includes zero. The prose does not use
+"marginally significant", "approaching significance" or "trend towards", reports p = .051
+rather than .05, and states that the interval includes zero in agreement with the p value.
+No change was made to the report prose.
+
+Not verified: the Android APK has never been run. There is no Android device or emulator on
+this machine, so its runtime behaviour is UNKNOWN rather than working or broken. The Windows
+and web builds have both been launched and used.
