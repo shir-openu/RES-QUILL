@@ -1,0 +1,10 @@
+	One Sample t-test
+
+data:  iq
+t = 1.4574, df = 32, p-value = 0.1548
+alternative hypothesis: true mean is not equal to 100
+95 percent confidence interval:
+ 98.78852 107.30436
+sample estimates:
+mean of x
+ 103.04644

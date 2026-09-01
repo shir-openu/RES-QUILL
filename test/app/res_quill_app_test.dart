@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:res_quill/src/app/res_quill_app.dart';
+import 'package:res_quill/src/app/sample_folder_opener.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _themePreferenceKeyForTest = 'resquill.theme';
@@ -14,7 +17,32 @@ const _allSeenGuideScreensForTest = [
   'validation',
 ];
 
+const _newFormatSourceAssets = [
+  (
+    sourcePath:
+        r'D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_r_welch.txt',
+    assetPath: 'assets/examples/paste_text/r_welch.txt',
+  ),
+  (
+    sourcePath:
+        r'D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_r_one_sample.txt',
+    assetPath: 'assets/examples/paste_text/r_one_sample.txt',
+  ),
+  (
+    sourcePath:
+        r'D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_jamovi_welch.txt',
+    assetPath: 'assets/examples/paste_text/jamovi_welch.txt',
+  ),
+  (
+    sourcePath:
+        r'D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_excel_toolpak_student.txt',
+    assetPath: 'assets/examples/paste_text/excel_toolpak_student.txt',
+  ),
+];
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   const ambiguousApaPaste =
       'Retrieval practice (n = 20, M = 81.40, SD = 5.5378) and '
       'Restudy (n = 31, M = 72.40, SD = 9.2616) were compared using a '
@@ -29,6 +57,53 @@ void main() {
       '95% CI [4.83, 13.17].';
 
   setUp(_mockAllGuideScreensSeen);
+
+  testWidgets('new bundled example assets match source bytes', (tester) async {
+    for (final pair in _newFormatSourceAssets) {
+      final source = File(pair.sourcePath);
+      expect(
+        source.existsSync(),
+        isTrue,
+        reason: 'Missing source file ${pair.sourcePath}',
+      );
+      final asset = await rootBundle.load(pair.assetPath);
+      final assetBytes = asset.buffer.asUint8List(
+        asset.offsetInBytes,
+        asset.lengthInBytes,
+      );
+      expect(
+        assetBytes,
+        orderedEquals(source.readAsBytesSync()),
+        reason: '${pair.assetPath} differs from ${pair.sourcePath}',
+      );
+    }
+  });
+
+  testWidgets('sample text folder export writes bundled files', (tester) async {
+    final temp = Directory.systemTemp.createTempSync('resquill-samples-');
+    addTearDown(() {
+      if (temp.existsSync()) {
+        temp.deleteSync(recursive: true);
+      }
+    });
+    final directoryPath = await tester.runAsync(
+      () => writeSamplePasteFiles(
+        bundle: rootBundle,
+        assetPaths: _newFormatSourceAssets.map((pair) => pair.assetPath),
+        appDataPath: temp.path,
+      ),
+    );
+
+    for (final pair in _newFormatSourceAssets) {
+      final fileName = Uri.parse(pair.assetPath).pathSegments.last;
+      final exported = File('$directoryPath${Platform.pathSeparator}$fileName');
+      expect(exported.existsSync(), isTrue);
+      expect(
+        exported.readAsBytesSync(),
+        orderedEquals(File(pair.assetPath).readAsBytesSync()),
+      );
+    }
+  });
 
   testWidgets('disabled analysis cards are not tappable', (tester) async {
     final semantics = tester.ensureSemantics();
@@ -295,6 +370,22 @@ void main() {
         'reported.df = 47.57',
       ),
       (
+        'r-welch',
+        'R prints means only; fill highlighted N and SD.',
+        'reported.df = 47.514',
+      ),
+      (
+        'r-one-sample',
+        'R prints means only; fill highlighted N and SD.',
+        'referenceMean = 100',
+      ),
+      ('jamovi-welch', 'Check what was found', 'reported.df = 47.514'),
+      (
+        'excel-toolpak-student',
+        'Enter the CI level, usually .95.',
+        'primary.standardDeviation = 10.361928',
+      ),
+      (
         'intentional-mistake',
         'Choose whether the p-value is one-tailed or two-tailed.',
         'reported.t = 4.34',
@@ -400,6 +491,18 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('desktop paste input exposes sample text folder control', (
+    tester,
+  ) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('paste-open-sample-folder')), findsOneWidget);
+    expect(find.text('Open sample text folder'), findsWidgets);
   });
 
   testWidgets('pasted raw spreadsheet rows are refused clearly', (

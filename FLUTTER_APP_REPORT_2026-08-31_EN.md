@@ -215,3 +215,35 @@ Verification:
 - `C:\flutter\bin\flutter.bat test --update-goldens tool\verify\capture_app_screens_test.dart`: passed.
 - Recaptured and inspected `captures\desktop_dark_04_validation_failing.png` and `captures\phone390_dark_04_validation_failing.png`.
 - Web, Windows, and Android builds: UNKNOWN in T32; not rerun.
+
+## T39 New-Format Examples And Practice Folder
+
+User problem addressed:
+- A student could paste R, jamovi/JASP, and Excel ToolPak output only if she already had a file. The examples inside the app still showed only the older SPSS/APA cases.
+- R console output is a special learner trap: R prints the test, CI, and means, but not N or SD.
+
+Changes:
+- Added bundled paste-text examples for `r_welch.txt`, `r_one_sample.txt`, `jamovi_welch.txt`, and `excel_toolpak_student.txt`.
+- The new app example buttons are `R Welch`, `R one-sample`, `jamovi Welch`, and `Excel ToolPak`.
+- The R examples use real `stats::t.test` console-output shape. No invented descriptives table is prepended.
+- When R output is missing only N and SD, the paste review shows one line: "R prints means only; fill highlighted N and SD."
+- The structured fields panel highlights the missing boxes without adding per-field help text.
+- On desktop builds, the input panels show `Open sample text folder`. Pressing it writes the bundled paste-text examples to an app-data `sample_paste_text` folder and opens that folder.
+- The folder control is hidden outside desktop IO platforms; web and Android do not show a dead button.
+- The folder contains paste-text examples only. Raw CSV and raw Excel rows remain outside the MVP.
+
+Asset provenance:
+- `assets/examples/paste_text/r_welch.txt` matches `SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_r_welch.txt`.
+- `assets/examples/paste_text/r_one_sample.txt` matches `SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_r_one_sample.txt`.
+- `assets/examples/paste_text/jamovi_welch.txt` matches `SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_jamovi_welch.txt`.
+- `assets/examples/paste_text/excel_toolpak_student.txt` matches `SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS\claude_excel_toolpak_student.txt`.
+- Byte identity is covered by the widget test "new bundled example assets match source bytes".
+
+Verification:
+- `dart format --set-exit-if-changed lib test tool`: passed, 38 files checked and 0 changed.
+- `dart run tool\verify\claude_check_paste.dart`: passed on the seven default `PASTE_TEXT` files.
+- `dart run tool\verify\claude_check_paste.dart D:\Dropbox\1PIPELINES1\FLUTTER_RESQUIL\SAMPLE_UPLOADS\CLAUDE_NEW_FORMATS`: passed on the 12 blind new-format files.
+- `flutter analyze`: passed, no issues found.
+- `flutter test`: passed, 152 passed and 0 failed.
+- `flutter test tool\verify\t39_r_asset_app_test.dart`: passed. The bundled R Welch example reached the report after entering N `24`, SD `10.361928`, N `27`, and SD `14.005195`.
+- T39 app/scipy values: t `3.286242536229062`, df `47.51367597657565`, p `0.0019131042118096797`; CI `[4.3685783516350165, 18.14962164836499]`.

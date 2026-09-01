@@ -9,6 +9,7 @@ import '../app_constants.dart';
 import '../paste/paste.dart';
 import '../report/report.dart';
 import '../stats/stats.dart';
+import 'sample_folder_opener.dart';
 
 part 'res_quill_guide.dart';
 
@@ -73,6 +74,30 @@ const _pasteExamples = [
     label: 'APA sentence with CI',
     controlLabel: 'APA sentence with CI',
     assetPath: 'assets/examples/paste_text/apa_sentence_welch.txt',
+  ),
+  _PasteExample(
+    id: 'r-welch',
+    label: 'R Welch output',
+    controlLabel: 'R Welch',
+    assetPath: 'assets/examples/paste_text/r_welch.txt',
+  ),
+  _PasteExample(
+    id: 'r-one-sample',
+    label: 'R one-sample output',
+    controlLabel: 'R one-sample',
+    assetPath: 'assets/examples/paste_text/r_one_sample.txt',
+  ),
+  _PasteExample(
+    id: 'jamovi-welch',
+    label: 'jamovi Welch output',
+    controlLabel: 'jamovi Welch',
+    assetPath: 'assets/examples/paste_text/jamovi_welch.txt',
+  ),
+  _PasteExample(
+    id: 'excel-toolpak-student',
+    label: 'Excel ToolPak output',
+    controlLabel: 'Excel ToolPak',
+    assetPath: 'assets/examples/paste_text/excel_toolpak_student.txt',
   ),
   _PasteExample(
     id: 'intentional-mistake',
@@ -580,6 +605,8 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
           setState(() => _selectedExample = example);
         },
         onLoadExample: _loadExample,
+        canOpenSampleFolder: canOpenSamplePasteFolder,
+        onOpenSampleFolder: _openSampleFolder,
         onShowSpreadsheetBoundary: _showSpreadsheetBoundary,
         onManualKindChanged: (kind) {
           setState(() => _manualKind = kind);
@@ -686,6 +713,23 @@ class _MainAppState extends State<MainApp> with TickerProviderStateMixin {
     });
     _reviewPaste();
     _afterScreenChanged();
+  }
+
+  Future<void> _openSampleFolder() async {
+    try {
+      await openSamplePasteFolder(
+        bundle: rootBundle,
+        assetPaths: _pasteExamples.map((example) => example.assetPath),
+      );
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _inputError = 'Sample folder could not open.';
+        _screen = _Screen.input;
+      });
+    }
   }
 
   void _showSpreadsheetBoundary() {
@@ -1634,6 +1678,8 @@ class _InputScreen extends StatelessWidget {
     required this.onBack,
     required this.onExampleChanged,
     required this.onLoadExample,
+    required this.canOpenSampleFolder,
+    required this.onOpenSampleFolder,
     required this.onShowSpreadsheetBoundary,
     required this.onManualKindChanged,
     required this.onManualTailChanged,
@@ -1679,6 +1725,8 @@ class _InputScreen extends StatelessWidget {
   final VoidCallback onBack;
   final ValueChanged<_PasteExample> onExampleChanged;
   final ValueChanged<_PasteExample> onLoadExample;
+  final bool canOpenSampleFolder;
+  final VoidCallback onOpenSampleFolder;
   final VoidCallback onShowSpreadsheetBoundary;
   final ValueChanged<TTestKind> onManualKindChanged;
   final ValueChanged<ReportedPValueTail> onManualTailChanged;
@@ -1693,6 +1741,11 @@ class _InputScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final copy = _InputCopy.forMode(mode, manualKind);
     final colors = _RqColors.of(context);
+    final missingPasteFieldKeys = _missingPasteFieldKeys(
+      pasteResult: pasteResult,
+      selectedCandidate: selectedCandidate,
+      confirmedPasteTail: confirmedPasteTail,
+    );
     return _ScreenShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1719,6 +1772,8 @@ class _InputScreen extends StatelessWidget {
                 pasteCanConfirm: pasteCanConfirm,
                 onExampleChanged: onExampleChanged,
                 onLoadExample: onLoadExample,
+                canOpenSampleFolder: canOpenSampleFolder,
+                onOpenSampleFolder: onOpenSampleFolder,
                 onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
                 onReviewPaste: onReviewPaste,
                 onCandidateChanged: onCandidateChanged,
@@ -1751,9 +1806,12 @@ class _InputScreen extends StatelessWidget {
                 reportedSeController: reportedSeController,
                 ciLowerController: ciLowerController,
                 ciUpperController: ciUpperController,
+                missingPasteFieldKeys: missingPasteFieldKeys,
                 selectedExample: selectedExample,
                 onExampleChanged: onExampleChanged,
                 onLoadExample: onLoadExample,
+                canOpenSampleFolder: canOpenSampleFolder,
+                onOpenSampleFolder: onOpenSampleFolder,
                 onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
                 onManualKindChanged: onManualKindChanged,
                 onManualTailChanged: onManualTailChanged,
@@ -1780,6 +1838,23 @@ class _InputScreen extends StatelessWidget {
       ),
     );
   }
+
+  Set<PasteFieldKey> _missingPasteFieldKeys({
+    required TTestPasteParseResult? pasteResult,
+    required PasteTTestCandidate? selectedCandidate,
+    required ReportedPValueTail? confirmedPasteTail,
+  }) {
+    final missingFields =
+        selectedCandidate?.missingRequiredFields(
+          confirmedPValueTail: confirmedPasteTail,
+        ) ??
+        pasteResult?.missingRequiredFields ??
+        const <PasteMissingField>[];
+    return {
+      for (final missing in missingFields)
+        if (missing.key != null) missing.key!,
+    };
+  }
 }
 
 class _PastePanel extends StatelessWidget {
@@ -1794,6 +1869,8 @@ class _PastePanel extends StatelessWidget {
     required this.pasteCanConfirm,
     required this.onExampleChanged,
     required this.onLoadExample,
+    required this.canOpenSampleFolder,
+    required this.onOpenSampleFolder,
     required this.onShowSpreadsheetBoundary,
     required this.onReviewPaste,
     required this.onCandidateChanged,
@@ -1811,6 +1888,8 @@ class _PastePanel extends StatelessWidget {
   final bool pasteCanConfirm;
   final ValueChanged<_PasteExample> onExampleChanged;
   final ValueChanged<_PasteExample> onLoadExample;
+  final bool canOpenSampleFolder;
+  final VoidCallback onOpenSampleFolder;
   final VoidCallback onShowSpreadsheetBoundary;
   final VoidCallback onReviewPaste;
   final ValueChanged<PasteTTestCandidate> onCandidateChanged;
@@ -1842,6 +1921,8 @@ class _PastePanel extends StatelessWidget {
             selectedExample: selectedExample,
             onExampleChanged: onExampleChanged,
             onLoadExample: onLoadExample,
+            canOpenSampleFolder: canOpenSampleFolder,
+            onOpenSampleFolder: onOpenSampleFolder,
             onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
           ),
           const SizedBox(height: 14),
@@ -1953,6 +2034,7 @@ class _PasteReview extends StatelessWidget {
           confirmedPValueTail: confirmedPasteTail,
         ) ??
         result.missingRequiredFields;
+    final rDescriptiveMissing = selectedCandidate?._rNeedsOnlyNAndSd == true;
     return _ReviewBlock(
       title: 'Check what was found',
       children: [
@@ -2027,13 +2109,19 @@ class _PasteReview extends StatelessWidget {
         ],
         if (missingFields.isNotEmpty) ...[
           const _Subhead('Missing'),
-          for (final missing in missingFields)
-            _IssueRow(
+          if (rDescriptiveMissing)
+            const _NoticeBox(
               tone: _StatusTone.warning,
-              field: _missingFieldLabel(missing),
-              title: _missingTitle(missing),
-              body: _missingBody(missing),
-            ),
+              text: 'R prints means only; fill highlighted N and SD.',
+            )
+          else
+            for (final missing in missingFields)
+              _IssueRow(
+                tone: _StatusTone.warning,
+                field: _missingFieldLabel(missing),
+                title: _missingTitle(missing),
+                body: _missingBody(missing),
+              ),
         ],
         const SizedBox(height: 8),
         _ActionButton(
@@ -2178,6 +2266,27 @@ class _PasteReview extends StatelessWidget {
   }
 }
 
+extension on PasteTTestCandidate {
+  bool get _rNeedsOnlyNAndSd {
+    if (format != 'R t.test console output') {
+      return false;
+    }
+    final missingKeys = missingRequiredFields()
+        .map((missing) => missing.key)
+        .whereType<PasteFieldKey>()
+        .toSet();
+    if (missingKeys.isEmpty) {
+      return false;
+    }
+    return missingKeys.difference({
+      PasteFieldKey.primaryN,
+      PasteFieldKey.primaryStandardDeviation,
+      PasteFieldKey.secondaryN,
+      PasteFieldKey.secondaryStandardDeviation,
+    }).isEmpty;
+  }
+}
+
 class _ManualFormPanel extends StatelessWidget {
   const _ManualFormPanel({
     required this.manualKind,
@@ -2204,9 +2313,12 @@ class _ManualFormPanel extends StatelessWidget {
     required this.reportedSeController,
     required this.ciLowerController,
     required this.ciUpperController,
+    required this.missingPasteFieldKeys,
     required this.selectedExample,
     required this.onExampleChanged,
     required this.onLoadExample,
+    required this.canOpenSampleFolder,
+    required this.onOpenSampleFolder,
     required this.onShowSpreadsheetBoundary,
     required this.onManualKindChanged,
     required this.onManualTailChanged,
@@ -2237,9 +2349,12 @@ class _ManualFormPanel extends StatelessWidget {
   final TextEditingController reportedSeController;
   final TextEditingController ciLowerController;
   final TextEditingController ciUpperController;
+  final Set<PasteFieldKey> missingPasteFieldKeys;
   final _PasteExample selectedExample;
   final ValueChanged<_PasteExample> onExampleChanged;
   final ValueChanged<_PasteExample> onLoadExample;
+  final bool canOpenSampleFolder;
+  final VoidCallback onOpenSampleFolder;
   final VoidCallback onShowSpreadsheetBoundary;
   final ValueChanged<TTestKind> onManualKindChanged;
   final ValueChanged<ReportedPValueTail> onManualTailChanged;
@@ -2248,6 +2363,7 @@ class _ManualFormPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
+    bool needs(PasteFieldKey key) => missingPasteFieldKeys.contains(key);
     return _GlassPanel(
       accent: colors.violet,
       guideTargetId: 'structured_fields_panel',
@@ -2266,6 +2382,8 @@ class _ManualFormPanel extends StatelessWidget {
             selectedExample: selectedExample,
             onExampleChanged: onExampleChanged,
             onLoadExample: onLoadExample,
+            canOpenSampleFolder: canOpenSampleFolder,
+            onOpenSampleFolder: onOpenSampleFolder,
             onShowSpreadsheetBoundary: onShowSpreadsheetBoundary,
           ),
           const SizedBox(height: 14),
@@ -2330,16 +2448,22 @@ class _ManualFormPanel extends StatelessWidget {
               _Field(
                 controller: confidenceController,
                 label: 'CI level (usually .95)',
+                attention: needs(PasteFieldKey.confidenceLevel),
               ),
             ],
           ),
           const _Subhead('Test numbers'),
           _FieldRow(
             children: [
-              _Field(controller: reportedTController, label: 't'),
+              _Field(
+                controller: reportedTController,
+                label: 't',
+                attention: needs(PasteFieldKey.reportedT),
+              ),
               _Field(
                 controller: reportedDfController,
                 label: 'df (Welch can be decimal)',
+                attention: needs(PasteFieldKey.reportedDegreesOfFreedom),
               ),
             ],
           ),
@@ -2348,22 +2472,36 @@ class _ManualFormPanel extends StatelessWidget {
               _Field(
                 controller: reportedPController,
                 label: 'p (SPSS .000: use < .001)',
+                attention: needs(PasteFieldKey.reportedP),
               ),
               _Field(
                 controller: reportedMeanDifferenceController,
                 label: 'Mean difference',
+                attention: needs(PasteFieldKey.reportedMeanDifference),
               ),
             ],
           ),
           _FieldRow(
             children: [
-              _Field(controller: reportedSeController, label: 'SE'),
-              _Field(controller: ciLowerController, label: 'CI lower'),
+              _Field(
+                controller: reportedSeController,
+                label: 'SE',
+                attention: needs(PasteFieldKey.reportedStandardError),
+              ),
+              _Field(
+                controller: ciLowerController,
+                label: 'CI lower',
+                attention: needs(PasteFieldKey.ciLower),
+              ),
             ],
           ),
           _FieldRow(
             children: [
-              _Field(controller: ciUpperController, label: 'CI upper'),
+              _Field(
+                controller: ciUpperController,
+                label: 'CI upper',
+                attention: needs(PasteFieldKey.ciUpper),
+              ),
             ],
           ),
           const _Subhead('Descriptives'),
@@ -2386,26 +2524,47 @@ class _ManualFormPanel extends StatelessWidget {
           ),
           _FieldRow(
             children: [
-              _Field(controller: primaryMeanController, label: 'Group 1 mean'),
+              _Field(
+                controller: primaryMeanController,
+                label: 'Group 1 mean',
+                attention: needs(PasteFieldKey.primaryMean),
+              ),
               if (manualKind != TTestKind.oneSample)
                 _Field(
                   controller: secondaryMeanController,
                   label: 'Group 2 mean',
+                  attention: needs(PasteFieldKey.secondaryMean),
                 ),
             ],
           ),
           _FieldRow(
             children: [
-              _Field(controller: primarySdController, label: 'Group 1 SD'),
+              _Field(
+                controller: primarySdController,
+                label: 'Group 1 SD',
+                attention: needs(PasteFieldKey.primaryStandardDeviation),
+              ),
               if (manualKind != TTestKind.oneSample)
-                _Field(controller: secondarySdController, label: 'Group 2 SD'),
+                _Field(
+                  controller: secondarySdController,
+                  label: 'Group 2 SD',
+                  attention: needs(PasteFieldKey.secondaryStandardDeviation),
+                ),
             ],
           ),
           _FieldRow(
             children: [
-              _Field(controller: primaryNController, label: 'Group 1 n'),
+              _Field(
+                controller: primaryNController,
+                label: 'Group 1 n',
+                attention: needs(PasteFieldKey.primaryN),
+              ),
               if (manualKind != TTestKind.oneSample)
-                _Field(controller: secondaryNController, label: 'Group 2 n'),
+                _Field(
+                  controller: secondaryNController,
+                  label: 'Group 2 n',
+                  attention: needs(PasteFieldKey.secondaryN),
+                ),
             ],
           ),
           if (manualKind == TTestKind.oneSample)
@@ -2414,6 +2573,7 @@ class _ManualFormPanel extends StatelessWidget {
                 _Field(
                   controller: referenceMeanController,
                   label: 'Reference mean',
+                  attention: needs(PasteFieldKey.referenceMean),
                 ),
               ],
             ),
@@ -2424,10 +2584,14 @@ class _ManualFormPanel extends StatelessWidget {
                 _Field(
                   controller: pairedMeanDifferenceController,
                   label: 'Mean difference',
+                  attention: needs(PasteFieldKey.pairedMeanDifference),
                 ),
                 _Field(
                   controller: pairedDifferenceSdController,
                   label: 'Difference SD',
+                  attention: needs(
+                    PasteFieldKey.pairedDifferenceStandardDeviation,
+                  ),
                 ),
               ],
             ),
@@ -2775,6 +2939,8 @@ class _ExampleControls extends StatelessWidget {
     required this.selectedExample,
     required this.onExampleChanged,
     required this.onLoadExample,
+    required this.canOpenSampleFolder,
+    required this.onOpenSampleFolder,
     required this.onShowSpreadsheetBoundary,
   });
 
@@ -2782,6 +2948,8 @@ class _ExampleControls extends StatelessWidget {
   final _PasteExample selectedExample;
   final ValueChanged<_PasteExample> onExampleChanged;
   final ValueChanged<_PasteExample> onLoadExample;
+  final bool canOpenSampleFolder;
+  final VoidCallback onOpenSampleFolder;
   final VoidCallback onShowSpreadsheetBoundary;
 
   @override
@@ -2816,6 +2984,13 @@ class _ExampleControls extends StatelessWidget {
               tone: _ButtonTone.tertiary,
               onPressed: onShowSpreadsheetBoundary,
             ),
+            if (canOpenSampleFolder)
+              _ActionButton(
+                key: Key('$keyPrefix-open-sample-folder'),
+                label: 'Open sample text folder',
+                tone: _ButtonTone.tertiary,
+                onPressed: onOpenSampleFolder,
+              ),
           ],
         );
       },
@@ -3513,18 +3688,45 @@ class _DistributionPainter extends CustomPainter {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({required this.controller, required this.label});
+  const _Field({
+    required this.controller,
+    required this.label,
+    this.attention = false,
+  });
 
   final TextEditingController controller;
   final String label;
+  final bool attention;
 
   @override
   Widget build(BuildContext context) {
     final colors = _RqColors.of(context);
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label),
-      style: TextStyle(color: colors.fieldText),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        final needsAttention = attention && controller.text.trim().isEmpty;
+        final enabledBorder = needsAttention
+            ? OutlineInputBorder(
+                borderSide: BorderSide(color: colors.warning, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              )
+            : null;
+        final focusedBorder = needsAttention
+            ? OutlineInputBorder(
+                borderSide: BorderSide(color: colors.warning, width: 2.4),
+                borderRadius: BorderRadius.circular(8),
+              )
+            : null;
+        return TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            enabledBorder: enabledBorder,
+            focusedBorder: focusedBorder,
+          ),
+          style: TextStyle(color: colors.fieldText),
+        );
+      },
     );
   }
 }

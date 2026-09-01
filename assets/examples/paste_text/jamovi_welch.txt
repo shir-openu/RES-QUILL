@@ -1,0 +1,11 @@
+Independent Samples T-Test
+
+                 statistic    df       p       Mean difference   SE difference
+Score  Welch's t 3.286    47.514   0.002   11.259    3.426
+
+Group Descriptives
+Group     N     Mean      SD       SE
+A         24    76.653    10.362    2.115
+B         27    65.394    14.005    2.695
+
+95% CI for Mean Difference: 4.369 to 18.150

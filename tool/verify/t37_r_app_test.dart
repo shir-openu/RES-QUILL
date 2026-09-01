@@ -52,7 +52,10 @@ void main() {
     await _pumpApp(tester);
     await _pasteAndReview(tester, input);
     expect(find.text('Check what was found'), findsOneWidget);
-    expect(find.text('Find this value in Group Statistics.'), findsNWidgets(4));
+    expect(
+      find.text('R prints means only; fill highlighted N and SD.'),
+      findsOneWidget,
+    );
 
     await _enterField(tester, 'Group 1 n', '20');
     await _enterField(tester, 'Group 1 SD', '2.03000');
