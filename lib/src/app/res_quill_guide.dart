@@ -68,14 +68,8 @@ class _GuideButtonConfig {
 const _guideStepsByScreen = <_Screen, List<_GuideStep>>{
   _Screen.start: [
     _GuideStep(
-      targetId: 'theme_toggle',
-      side: _GuideSide.left,
-      title: 'Theme switch',
-      body: 'Change colors here. Your values stay the same.',
-    ),
-    _GuideStep(
       targetId: 'paste_output',
-      side: _GuideSide.top,
+      side: _GuideSide.right,
       title: 'Paste copied output',
       body:
           'Paste supported t-test output when copied. Then confirm detected values.',
@@ -116,23 +110,16 @@ const _guideStepsByScreen = <_Screen, List<_GuideStep>>{
           'This card is planned only. It does not accept correlation or regression.',
     ),
     _GuideStep(
-      targetId: 'categorical_coming_later',
-      side: _GuideSide.left,
-      title: 'Coming later area',
-      body: 'This card is planned only. Do not enter chi-square results here.',
-    ),
-    _GuideStep(
-      targetId: 'diagnostics_coming_later',
-      side: _GuideSide.left,
-      title: 'Coming later area',
-      body:
-          'This card is planned only. Assumption checks need their own workflow.',
-    ),
-    _GuideStep(
       targetId: 'guide_replay',
       side: _GuideSide.bottom,
       title: 'Replay this guide',
       body: 'Replay help for this screen. It never changes your data.',
+    ),
+    _GuideStep(
+      targetId: 'theme_toggle',
+      side: _GuideSide.bottom,
+      title: 'Theme switch',
+      body: 'Change colors here. Your values stay the same.',
     ),
   ],
   _Screen.selection: [
@@ -590,6 +577,13 @@ class _GuideOverlayState extends State<_GuideOverlay> {
         targetRender is RenderBox &&
         targetRender.size.height > viewportSize.height * 0.56;
     if (scrollFirst && !_sameSession(_lastMeasuredSession, session)) {
+      final scrollAlignment = mobile
+          ? session.screen == _Screen.start && step.targetId == 'paste_output'
+                ? 0.78
+                : tallTarget
+                ? 0.68
+                : 0.38
+          : 0.5;
       unawaited(
         Scrollable.ensureVisible(
           targetContext,
@@ -597,7 +591,7 @@ class _GuideOverlayState extends State<_GuideOverlay> {
               ? Duration.zero
               : const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          alignment: mobile ? (tallTarget ? 0.68 : 0.38) : 0.5,
+          alignment: scrollAlignment,
           alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
         ),
       );

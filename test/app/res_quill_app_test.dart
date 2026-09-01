@@ -561,19 +561,71 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const Key('guide-bubble')), findsOneWidget);
-    expect(find.text('1 of 10'), findsOneWidget);
+    expect(find.text('1 of 8'), findsOneWidget);
+    expect(find.text('Paste copied output'), findsOneWidget);
     expect(
-      find.text('Change colors here. Your values stay the same.'),
+      find.text(
+        'Paste supported t-test output when copied. Then confirm detected values.',
+      ),
       findsOneWidget,
     );
 
     await tester.pump(const Duration(seconds: 2));
 
-    expect(find.text('1 of 10'), findsOneWidget);
+    expect(find.text('1 of 8'), findsOneWidget);
+    expect(find.text('Paste copied output'), findsOneWidget);
     expect(
-      find.text('Change colors here. Your values stay the same.'),
+      find.text(
+        'Paste supported t-test output when copied. Then confirm detected values.',
+      ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('first-run start guide does not cover heading or controls', (
+    tester,
+  ) async {
+    for (final surfaceSize in const [Size(1440, 1000), Size(390, 900)]) {
+      SharedPreferences.setMockInitialValues({});
+      await _setSurface(tester, surfaceSize);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const MainApp());
+      await _pumpGuideMeasurement(tester);
+
+      expect(find.byKey(const Key('guide-bubble')), findsOneWidget);
+      expect(find.text('Paste copied output'), findsOneWidget);
+
+      final bubble = tester.getRect(find.byKey(const Key('guide-bubble')));
+      final viewport = Offset.zero & surfaceSize;
+      final guardedTargets = [
+        (find.byKey(const Key('start-headline')), 'start headline'),
+        (find.byKey(const Key('guide-replay')), 'guide replay'),
+        (find.widgetWithText(FilledButton, 'BRIGHT VIEW'), 'theme switch'),
+        (find.byKey(const Key('open-settings')), 'settings'),
+        if (surfaceSize.width >= 720)
+          (find.byKey(const Key('analysis-area-title')), 'analysis heading'),
+      ];
+
+      for (final (finder, label) in guardedTargets) {
+        final rect = tester.getRect(finder);
+        expect(
+          viewport.contains(rect.topLeft) &&
+              viewport.contains(rect.bottomRight),
+          isTrue,
+          reason: '$label is outside the $surfaceSize viewport: $rect',
+        );
+        expect(
+          bubble.overlaps(rect),
+          isFalse,
+          reason:
+              'Guide bubble overlaps $label at $surfaceSize: $bubble / $rect',
+        );
+      }
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpGuideMeasurement(tester);
+    }
   });
 
   testWidgets('guide traps keyboard focus and Escape closes it', (
@@ -660,10 +712,22 @@ void _mockAllGuideScreensSeen() {
 }
 
 Future<void> _setDesktop(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(1280, 900);
+  await _setSurface(tester, const Size(1280, 900));
+}
+
+Future<void> _setSurface(WidgetTester tester, Size size) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Future<void> _pumpGuideMeasurement(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pump();
 }
 
 Future<void> _pasteAndReview(WidgetTester tester, String paste) async {
