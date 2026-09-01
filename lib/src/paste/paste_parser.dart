@@ -17,6 +17,9 @@ class TTestPasteParser {
       _parseSpssIndependent,
       _parseSpssPaired,
       _parseSpssOneSample,
+      _parseRConsole,
+      _parseJaspJamoviTable,
+      _parseExcelToolpak,
       _parseApa,
       _parseKeyValue,
     ];
@@ -378,6 +381,416 @@ class TTestPasteParser {
     );
   }
 
+  static TTestPasteParseResult? _parseRConsole(
+    String input,
+    List<_Line> lines,
+  ) {
+    final kind = _rConsoleKind(lines);
+    if (kind == null) {
+      return null;
+    }
+    if (!_containsFolded(input, 'p-value') &&
+        !_containsFolded(input, 'alternative hypothesis')) {
+      return null;
+    }
+
+    final statisticFields = _keyNumberFields(input);
+    final hasReportedCore =
+        _fieldByKey(statisticFields, PasteFieldKey.reportedT) != null &&
+        _fieldByKey(statisticFields, PasteFieldKey.reportedDegreesOfFreedom) !=
+            null &&
+        _fieldByKey(statisticFields, PasteFieldKey.reportedP) != null;
+    if (!hasReportedCore) {
+      return _cannotParse(input, const [
+        'R t.test output is missing t, df, or p-value.',
+      ]);
+    }
+
+    final groupRows = _looseGroupRows(lines);
+    final pairedDifferenceFields = _pairedDifferenceFields(lines);
+    final hasSampleEstimates =
+        _lineIndexContaining(lines, 'sample estimates') != -1;
+    final hasEnoughDescriptives = switch (kind) {
+      TTestKind.independentStudent ||
+      TTestKind.independentWelch => groupRows.length >= 2,
+      TTestKind.oneSample => groupRows.isNotEmpty,
+      TTestKind.pairedSamples =>
+        groupRows.length >= 2 &&
+            _fieldByKey(
+                  pairedDifferenceFields,
+                  PasteFieldKey.pairedDifferenceStandardDeviation,
+                ) !=
+                null,
+    };
+    if (!hasSampleEstimates || !hasEnoughDescriptives) {
+      return _cannotParse(input, const [
+        'R t.test output is missing sample estimates or descriptives.',
+      ]);
+    }
+    final confidenceLevelField = _confidenceLevelField(input);
+    final confidenceIntervalFields = _rConfidenceIntervalFields(lines);
+    if (confidenceLevelField == null || confidenceIntervalFields.length < 2) {
+      return _cannotParse(input, const [
+        'R t.test output is missing the confidence interval block.',
+      ]);
+    }
+    final reportedTail = _tailFromContext(input, input);
+    if (reportedTail == null) {
+      return _cannotParse(input, const [
+        'R t.test output is missing the alternative hypothesis direction.',
+      ]);
+    }
+    final referenceMeanField = _rReferenceMeanField(input, kind);
+    if (kind == TTestKind.oneSample && referenceMeanField == null) {
+      return _cannotParse(input, const [
+        'R one-sample t.test output is missing the reference mean.',
+      ]);
+    }
+
+    final fields = <PasteExtractedField<Object>>[
+      ..._statsToFields(
+        kind == TTestKind.oneSample ? groupRows.take(1).toList() : groupRows,
+        _GroupRowOrder.nMeanSd,
+        confidence: 0.82,
+      ),
+      ...statisticFields,
+      if (kind != TTestKind.oneSample) ...confidenceIntervalFields,
+      confidenceLevelField,
+      ?referenceMeanField,
+      if (kind == TTestKind.pairedSamples) ...pairedDifferenceFields,
+    ];
+
+    return _finish(
+      input: input,
+      candidates: [
+        PasteTTestCandidate(
+          kind: kind,
+          label: _kindLabel(kind),
+          fields: fields,
+          reportedPValueTail: reportedTail,
+          selectedByText: true,
+          format: 'R t.test console output',
+          confidence: 0.86,
+        ),
+      ],
+    );
+  }
+
+  static TTestKind? _rConsoleKind(List<_Line> lines) {
+    for (final line in lines) {
+      final folded = line.folded.trim();
+      if (RegExp(r'^welch\s+two\s+sample\s+t[- ]test$').hasMatch(folded)) {
+        return TTestKind.independentWelch;
+      }
+      if (RegExp(r'^two\s+sample\s+t[- ]test$').hasMatch(folded)) {
+        return TTestKind.independentStudent;
+      }
+      if (RegExp(r'^paired\s+t[- ]test$').hasMatch(folded)) {
+        return TTestKind.pairedSamples;
+      }
+      if (RegExp(r'^one\s+sample\s+t[- ]test$').hasMatch(folded)) {
+        return TTestKind.oneSample;
+      }
+    }
+    return null;
+  }
+
+  static TTestPasteParseResult? _parseJaspJamoviTable(
+    String input,
+    List<_Line> lines,
+  ) {
+    final sectionKind = _jaspJamoviSectionKind(input);
+    if (sectionKind == null) {
+      return null;
+    }
+    if (!_jaspJamoviHasPColumn(lines)) {
+      return _cannotParse(input, const [
+        'JASP/jamovi t-test table is missing the p column.',
+      ]);
+    }
+
+    final rows = _compactTTestRows(lines, sectionKind);
+    if (rows.isEmpty) {
+      return _cannotParse(input, const [
+        'JASP/jamovi t-test table is missing a supported t-test statistic row.',
+      ]);
+    }
+    if (rows.length > 1) {
+      return _cannotParse(input, const [
+        'JASP/jamovi t-test table contains multiple supported t-test rows.',
+      ]);
+    }
+
+    final groupRows = _looseGroupRows(lines);
+    final pairedDifferenceFields = _pairedDifferenceFields(lines);
+    final hasEnoughDescriptives = switch (sectionKind) {
+      TTestKind.independentStudent ||
+      TTestKind.independentWelch => groupRows.length >= 2,
+      TTestKind.oneSample => groupRows.isNotEmpty,
+      TTestKind.pairedSamples =>
+        groupRows.length >= 2 && pairedDifferenceFields.isNotEmpty,
+    };
+    if (!hasEnoughDescriptives) {
+      return _cannotParse(input, const [
+        'JASP/jamovi t-test table is missing descriptives required for validation.',
+      ]);
+    }
+    final confidenceLevelField = _confidenceLevelField(input);
+    if (confidenceLevelField == null) {
+      return _cannotParse(input, const [
+        'JASP/jamovi t-test table is missing a confidence interval level required for validation.',
+      ]);
+    }
+    final testValueField = _testValueField(input);
+    final referenceMeanFields = _referenceMeanFields(input);
+    if (sectionKind == TTestKind.oneSample &&
+        testValueField == null &&
+        referenceMeanFields.isEmpty) {
+      return _cannotParse(input, const [
+        'JASP/jamovi one-sample t-test table is missing the test value.',
+      ]);
+    }
+
+    final commonFields = <PasteExtractedField<Object>>[
+      ..._statsToFields(
+        sectionKind == TTestKind.oneSample
+            ? groupRows.take(1).toList()
+            : groupRows,
+        _GroupRowOrder.nMeanSd,
+        confidence: 0.82,
+      ),
+      ..._ciFields(input),
+      confidenceLevelField,
+      ?testValueField,
+      ...referenceMeanFields,
+      if (sectionKind == TTestKind.pairedSamples) ...pairedDifferenceFields,
+    ];
+
+    final candidates = rows.map((row) {
+      final selected = rows.length == 1;
+      return PasteTTestCandidate(
+        kind: row.kind,
+        label: _kindLabel(row.kind),
+        fields: sectionKind == TTestKind.pairedSamples
+            ? [...commonFields, ...row.fields]
+            : [...row.fields, ...commonFields],
+        reportedPValueTail: ReportedPValueTail.twoTailed,
+        selectedByText: selected,
+        format: 'JASP/jamovi t-test table',
+        confidence: selected ? 0.86 : 0.74,
+      );
+    }).toList();
+
+    return _finish(input: input, candidates: candidates);
+  }
+
+  static TTestKind? _jaspJamoviSectionKind(String input) {
+    final folded = _fold(input);
+    if (RegExp(r'\bindependent\s+samples\s+t[- ]test\b').hasMatch(folded)) {
+      return TTestKind.independentWelch;
+    }
+    if (RegExp(r'\bpaired\s+samples\s+t[- ]test\b').hasMatch(folded)) {
+      return TTestKind.pairedSamples;
+    }
+    if (RegExp(r'\bone\s+sample\s+t[- ]test\b').hasMatch(folded)) {
+      return TTestKind.oneSample;
+    }
+    return null;
+  }
+
+  static bool _jaspJamoviHasPColumn(List<_Line> lines) {
+    return lines.any((line) {
+      final folded = line.folded;
+      return folded.contains('statistic') &&
+          folded.contains('df') &&
+          RegExp(r'(^|\s)p(\s|$|\()|p[- ]value').hasMatch(folded);
+    });
+  }
+
+  static List<_CompactTTestRow> _compactTTestRows(
+    List<_Line> lines,
+    TTestKind sectionKind,
+  ) {
+    final rows = <_CompactTTestRow>[];
+    for (final line in lines) {
+      final match = RegExp(
+        r"(student'?s|welch'?s)\s+t\b",
+        caseSensitive: false,
+      ).firstMatch(line.text);
+      if (match == null) {
+        continue;
+      }
+      final statisticLabel = _fold(match.group(1)!);
+      final rowKind = switch (sectionKind) {
+        TTestKind.independentStudent || TTestKind.independentWelch =>
+          statisticLabel.contains('welch')
+              ? TTestKind.independentWelch
+              : TTestKind.independentStudent,
+        TTestKind.pairedSamples => TTestKind.pairedSamples,
+        TTestKind.oneSample => TTestKind.oneSample,
+      };
+      final tokens = _numbersInLine(line, startInLine: match.end);
+      if (tokens.length < 3) {
+        continue;
+      }
+      final fields = <PasteExtractedField<Object>>[
+        _numberField(PasteFieldKey.reportedT, tokens[0]),
+        _numberField(PasteFieldKey.reportedDegreesOfFreedom, tokens[1]),
+        _numberField(
+          PasteFieldKey.reportedP,
+          tokens[2],
+          relation: _relationBefore(line, tokens[2]),
+          pValue: true,
+        ),
+      ];
+      if (tokens.length >= 4) {
+        fields.add(
+          _numberField(PasteFieldKey.reportedMeanDifference, tokens[3]),
+        );
+        if (rowKind == TTestKind.pairedSamples) {
+          fields.add(
+            _numberField(PasteFieldKey.pairedMeanDifference, tokens[3]),
+          );
+        }
+      }
+      if (tokens.length >= 5) {
+        fields.add(
+          _numberField(PasteFieldKey.reportedStandardError, tokens[4]),
+        );
+      }
+      rows.add(_CompactTTestRow(kind: rowKind, fields: fields));
+    }
+    return rows;
+  }
+
+  static TTestPasteParseResult? _parseExcelToolpak(
+    String input,
+    List<_Line> lines,
+  ) {
+    final kind = _excelKind(input);
+    if (kind == null) {
+      return null;
+    }
+
+    final mean = _excelRow(lines, RegExp(r'^\s*mean\b', caseSensitive: false));
+    final variance = _excelRow(
+      lines,
+      RegExp(r'^\s*variance\b', caseSensitive: false),
+    );
+    final observations = _excelRow(
+      lines,
+      RegExp(r'^\s*observations\b', caseSensitive: false),
+    );
+    final t = _excelRow(lines, RegExp(r'^\s*t\s+stat\b', caseSensitive: false));
+    final df = _excelRow(lines, RegExp(r'^\s*df\b', caseSensitive: false));
+    final pTwoTail = _excelRow(
+      lines,
+      RegExp(r'^\s*p\s*\(t\s*<=\s*t\)\s+two[- ]tail\b', caseSensitive: false),
+    );
+    final alpha = _excelRow(
+      lines,
+      RegExp(r'^\s*alpha\b', caseSensitive: false),
+    );
+    if (pTwoTail == null) {
+      return _cannotParse(input, const [
+        'Excel ToolPak t-test output is missing P(T<=t) two-tail.',
+      ]);
+    }
+    if (mean == null ||
+        variance == null ||
+        observations == null ||
+        t == null ||
+        df == null ||
+        alpha == null ||
+        mean.tokens.length < 2 ||
+        variance.tokens.length < 2 ||
+        observations.tokens.length < 2 ||
+        t.tokens.isEmpty ||
+        df.tokens.isEmpty ||
+        pTwoTail.tokens.isEmpty ||
+        alpha.tokens.isEmpty) {
+      return _cannotParse(input, const [
+        'Excel ToolPak t-test output is missing required summary rows.',
+      ]);
+    }
+
+    final fields = <PasteExtractedField<Object>>[
+      _numberField(
+        PasteFieldKey.primaryN,
+        observations.tokens[0],
+        preferInteger: true,
+      ),
+      _numberField(PasteFieldKey.primaryMean, mean.tokens[0]),
+      _standardDeviationFromVarianceField(
+        PasteFieldKey.primaryStandardDeviation,
+        variance.tokens[0],
+      ),
+      _numberField(
+        PasteFieldKey.secondaryN,
+        observations.tokens[1],
+        preferInteger: true,
+      ),
+      _numberField(PasteFieldKey.secondaryMean, mean.tokens[1]),
+      _standardDeviationFromVarianceField(
+        PasteFieldKey.secondaryStandardDeviation,
+        variance.tokens[1],
+      ),
+      _numberField(PasteFieldKey.reportedT, t.tokens[0]),
+      _numberField(PasteFieldKey.reportedDegreesOfFreedom, df.tokens[0]),
+      _numberField(PasteFieldKey.reportedP, pTwoTail.tokens[0], pValue: true),
+      _confidenceFromAlphaField(alpha.tokens[0]),
+    ];
+    if (kind == TTestKind.pairedSamples) {
+      final correlation = _excelRow(
+        lines,
+        RegExp(r'^\s*pearson\s+correlation\b', caseSensitive: false),
+      );
+      if (correlation == null || correlation.tokens.isEmpty) {
+        return _cannotParse(input, const [
+          'Excel paired t-test output is missing Pearson Correlation.',
+        ]);
+      }
+      fields.add(
+        _numberField(PasteFieldKey.pairedCorrelation, correlation.tokens[0]),
+      );
+    }
+
+    return _finish(
+      input: input,
+      candidates: [
+        PasteTTestCandidate(
+          kind: kind,
+          label: _kindLabel(kind),
+          fields: fields,
+          reportedPValueTail: ReportedPValueTail.twoTailed,
+          selectedByText: true,
+          format: 'Excel Analysis ToolPak t-test output',
+          confidence: 0.84,
+        ),
+      ],
+    );
+  }
+
+  static TTestKind? _excelKind(String input) {
+    final folded = _fold(input);
+    if (RegExp(
+      r'\bt[- ]test:\s*two[- ]sample\s+assuming\s+equal\s+variances\b',
+    ).hasMatch(folded)) {
+      return TTestKind.independentStudent;
+    }
+    if (RegExp(
+      r'\bt[- ]test:\s*two[- ]sample\s+assuming\s+unequal\s+variances\b',
+    ).hasMatch(folded)) {
+      return TTestKind.independentWelch;
+    }
+    if (RegExp(
+      r'\bt[- ]test:\s*paired\s+two\s+sample\s+for\s+means\b',
+    ).hasMatch(folded)) {
+      return TTestKind.pairedSamples;
+    }
+    return null;
+  }
+
   static TTestPasteParseResult? _parseApa(String input, List<_Line> lines) {
     final tFields = _apaTFields(input);
     if (tFields == null) {
@@ -592,13 +1005,28 @@ class TTestPasteParser {
       return _cannotParse(input, const ['ANOVA output is not supported.']);
     }
     if (RegExp(
+      r"\b(pearson'?s product-moment correlation|cor\.test|correlation test)\b",
+    ).hasMatch(folded)) {
+      return _cannotParse(input, const [
+        'Correlation output is not supported.',
+      ]);
+    }
+    if (RegExp(r'\bz[- ]test\b').hasMatch(folded)) {
+      return _cannotParse(input, const ['z-test output is not supported.']);
+    }
+    if (RegExp(r'\bregression\b').hasMatch(folded)) {
+      return _cannotParse(input, const ['Regression output is not supported.']);
+    }
+    if (RegExp(
       r'\b(void main|class\s+\w+|function\s+\w+|import\s+package:)\b',
     ).hasMatch(folded)) {
       return _cannotParse(input, const [
         'Code snippets are not statistical output.',
       ]);
     }
-    if (_looksLikeRawData(input) && !RegExp(r'\bt\s*[\(=]').hasMatch(folded)) {
+    if (_looksLikeRawData(input) &&
+        !RegExp(r'\bt\s*[\(=]').hasMatch(folded) &&
+        !RegExp(r'\bt[- ]test\b').hasMatch(folded)) {
       return _cannotParse(input, const [
         'This looks like raw spreadsheet rows. Paste t-test output instead.',
       ]);
@@ -734,6 +1162,18 @@ class TTestPasteParser {
     return fields;
   }
 
+  static PasteExtractedField<Object>? _fieldByKey(
+    Iterable<PasteExtractedField<Object>> fields,
+    PasteFieldKey key,
+  ) {
+    for (final field in fields) {
+      if (field.key == key) {
+        return field;
+      }
+    }
+    return null;
+  }
+
   static List<_GroupRow> _parenthesizedGroupStats(String input) {
     final pattern = RegExp(
       '([A-Za-z][^()\\n;]{0,140}?)\\s*\\(([^()\\n]{0,180})\\)',
@@ -849,6 +1289,89 @@ class TTestPasteParser {
       }
     }
     return rows;
+  }
+
+  static List<PasteExtractedField<Object>> _rConfidenceIntervalFields(
+    List<_Line> lines,
+  ) {
+    final start = _lineIndexContaining(lines, 'confidence interval:');
+    if (start == -1) {
+      return const [];
+    }
+    for (var i = start + 1; i < lines.length; i += 1) {
+      final line = lines[i];
+      if (line.text.trim().isEmpty) {
+        continue;
+      }
+      final tokens = _numbersInLine(line);
+      if (tokens.length < 2) {
+        break;
+      }
+      return [
+        _numberField(PasteFieldKey.ciLower, tokens[0]),
+        _numberField(PasteFieldKey.ciUpper, tokens[1]),
+      ];
+    }
+    return const [];
+  }
+
+  static PasteExtractedField<Object>? _rReferenceMeanField(
+    String input,
+    TTestKind kind,
+  ) {
+    if (kind != TTestKind.oneSample) {
+      return null;
+    }
+    final match = RegExp(
+      'alternative\\s+hypothesis\\s*:\\s*true\\s+mean\\s+is\\s+'
+      '(?:not\\s+equal\\s+to|less\\s+than|greater\\s+than)\\s+'
+      '($_numberPattern)',
+      caseSensitive: false,
+    ).firstMatch(input);
+    if (match == null) {
+      return null;
+    }
+    return _numberField(
+      PasteFieldKey.referenceMean,
+      _tokenFromMatch(input, match, 1),
+    );
+  }
+
+  static List<PasteExtractedField<Object>> _pairedDifferenceFields(
+    List<_Line> lines,
+  ) {
+    final start = _lineIndexContaining(lines, 'paired differences');
+    if (start == -1) {
+      return const [];
+    }
+    for (var i = start + 1; i < lines.length; i += 1) {
+      final line = lines[i];
+      if (line.text.trim().isEmpty) {
+        break;
+      }
+      if (_isHeaderLike(line)) {
+        continue;
+      }
+      final tokens = _dataNumbersInLine(line);
+      if (tokens.length < 3) {
+        continue;
+      }
+      final fields = <PasteExtractedField<Object>>[
+        _numberField(PasteFieldKey.pairedMeanDifference, tokens[1]),
+        _numberField(
+          PasteFieldKey.pairedDifferenceStandardDeviation,
+          tokens[2],
+        ),
+        _numberField(PasteFieldKey.reportedMeanDifference, tokens[1]),
+      ];
+      if (tokens.length >= 4) {
+        fields.add(
+          _numberField(PasteFieldKey.reportedStandardError, tokens[3]),
+        );
+      }
+      return fields;
+    }
+    return const [];
   }
 
   static List<PasteExtractedField<Object>>? _apaTFields(String input) {
@@ -970,6 +1493,17 @@ class TTestPasteParser {
         _tokenFromMatch(input, match, 1),
       ),
     ];
+  }
+
+  static ReportedRelation? _relationBefore(_Line line, _NumericToken token) {
+    final end = token.start - line.start;
+    final start = math.max(0, end - 6);
+    final prefix = line.text.substring(start, end).trimRight();
+    final match = RegExp(r'(<=|>=|<|>|\u2264|\u2265)\s*$').firstMatch(prefix);
+    if (match == null) {
+      return null;
+    }
+    return _relationFromSymbol(match.group(1));
   }
 
   static List<PasteExtractedField<Object>> _keyNumberFields(String input) {
@@ -1178,6 +1712,11 @@ class TTestPasteParser {
       return ReportedPValueTail.twoTailed;
     }
     if (RegExp(
+      r'alternative\s+hypothesis\s*:[^\n]*\bnot\s+equal\s+to\b',
+    ).hasMatch(folded)) {
+      return ReportedPValueTail.twoTailed;
+    }
+    if (RegExp(
       r'\b(lower[- ]tail|left[- ]tail|less[- ]than|one[- ]tailed\s+less)\b',
     ).hasMatch(folded)) {
       return ReportedPValueTail.less;
@@ -1217,6 +1756,63 @@ class TTestPasteParser {
     );
   }
 
+  static PasteExtractedField<Object> _standardDeviationFromVarianceField(
+    PasteFieldKey key,
+    _NumericToken token,
+  ) {
+    final parsed = token.number();
+    final value = math.sqrt(parsed.value);
+    final rounded = _roundToDecimalPlaces(value, parsed.decimalPlaces);
+    return PasteExtractedField<Object>(
+      key: key,
+      value: PasteNumber(
+        value: rounded,
+        decimalPlaces: parsed.decimalPlaces,
+        relation: parsed.relation,
+      ),
+      sourceText: token.sourceText,
+      start: token.start,
+      end: token.end,
+      confidence: 0.84,
+    );
+  }
+
+  static PasteExtractedField<Object> _confidenceFromAlphaField(
+    _NumericToken token,
+  ) {
+    final parsed = token.number();
+    final value = _roundToDecimalPlaces(1 - parsed.value, parsed.decimalPlaces);
+    return PasteExtractedField<Object>(
+      key: PasteFieldKey.confidenceLevel,
+      value: PasteNumber(
+        value: value,
+        decimalPlaces: parsed.decimalPlaces,
+        relation: ReportedRelation.equalRounded,
+      ),
+      sourceText: token.sourceText,
+      start: token.start,
+      end: token.end,
+      confidence: 0.88,
+    );
+  }
+
+  static double _roundToDecimalPlaces(double value, int decimalPlaces) {
+    final multiplier = math.pow(10, decimalPlaces).toDouble();
+    return (value * multiplier).round() / multiplier;
+  }
+
+  static _ExcelRow? _excelRow(List<_Line> lines, RegExp labelPattern) {
+    for (final line in lines) {
+      final match = labelPattern.firstMatch(line.text);
+      if (match == null) {
+        continue;
+      }
+      final tokens = _numbersInLine(line, startInLine: match.end);
+      return _ExcelRow(tokens: tokens);
+    }
+    return null;
+  }
+
   static List<_NumericToken> _dataNumbersInLine(
     _Line line, {
     bool dropPairOrdinal = false,
@@ -1236,6 +1832,7 @@ class TTestPasteParser {
     final segment = line.text.substring(startInLine);
     return _numberRegex
         .allMatches(segment)
+        .where((match) => !_numberEmbeddedInWord(segment, match))
         .map(
           (match) => _NumericToken(
             sourceText: match.group(0)!,
@@ -1244,6 +1841,21 @@ class TTestPasteParser {
           ),
         )
         .toList();
+  }
+
+  static bool _numberEmbeddedInWord(String segment, RegExpMatch match) {
+    final before = match.start == 0
+        ? null
+        : segment.codeUnitAt(match.start - 1);
+    final after = match.end >= segment.length
+        ? null
+        : segment.codeUnitAt(match.end);
+    return before != null && _isAsciiWordCode(before) ||
+        after != null && _isAsciiWordCode(after);
+  }
+
+  static bool _isAsciiWordCode(int code) {
+    return code >= 65 && code <= 90 || code >= 97 && code <= 122 || code == 95;
   }
 
   static _NumericToken _tokenFromMatch(
@@ -1476,7 +2088,7 @@ class TTestPasteParser {
 
   static final RegExp _numberRegex = RegExp(_numberPattern);
   static const String _numberPattern =
-      r'[\-\u2212\u2013\u2014]?(?:(?:\d{1,3}(?:[,\.\s\u00a0]\d{3})+(?:[,.]\d+)?)|\d+(?:[,.]\d+)?|[,.]\d+)(?!\d|[,.]\d)';
+      r'[\+\-\u2212\u2013\u2014]?(?:(?:\d{1,3}(?:[,\.\s\u00a0]\d{3})+(?:[,.]\d+)?)|\d+(?:[,.]\d+)?|[,.]\d+)(?:[eE][+-]?\d+)?(?!\d|[,.]\d)';
 }
 
 enum _GroupRowOrder { nMeanSd, meanNSd }
@@ -1554,6 +2166,15 @@ _ParsedNumber _parseLocaleNumber(String source, {required bool preferInteger}) {
     text = text.substring(1);
   }
 
+  var exponent = '';
+  var exponentValue = 0;
+  final exponentMatch = RegExp(r'[eE][+-]?\d+$').firstMatch(text);
+  if (exponentMatch != null) {
+    exponent = text.substring(exponentMatch.start);
+    exponentValue = int.parse(exponent.substring(1));
+    text = text.substring(0, exponentMatch.start);
+  }
+
   final comma = text.lastIndexOf(',');
   final dot = text.lastIndexOf('.');
   String? decimalSeparator;
@@ -1577,12 +2198,14 @@ _ParsedNumber _parseLocaleNumber(String source, {required bool preferInteger}) {
         '${text.substring(0, separatorIndex).replaceAll(thousandsSeparator, '')}.'
         '${text.substring(separatorIndex + 1)}';
   }
+  decimals = math.min(20, math.max(0, decimals - exponentValue)).toInt();
   if (normalized.startsWith('.')) {
     normalized = '0$normalized';
   }
   if (negative) {
     normalized = '-$normalized';
   }
+  normalized = '$normalized$exponent';
   return _ParsedNumber(
     value: double.parse(normalized),
     decimalPlaces: decimals,
@@ -1612,6 +2235,19 @@ class _GroupRow {
   const _GroupRow({required this.label, required this.tokens});
 
   final _TextSpan label;
+  final List<_NumericToken> tokens;
+}
+
+class _CompactTTestRow {
+  const _CompactTTestRow({required this.kind, required this.fields});
+
+  final TTestKind kind;
+  final List<PasteExtractedField<Object>> fields;
+}
+
+class _ExcelRow {
+  const _ExcelRow({required this.tokens});
+
   final List<_NumericToken> tokens;
 }
 

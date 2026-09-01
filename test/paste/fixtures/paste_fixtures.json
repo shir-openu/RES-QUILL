@@ -424,6 +424,479 @@
       ]
     },
     {
+      "id": "R_IND01_WELCH_FLOOR",
+      "title": "R t.test Welch two-sample console output with R p-value floor",
+      "format": "r_t_test",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "R console output shape from the stats::t.test manual and Datanovia base-R two-group t-test tutorial. Numeric values were generated from the fixture descriptives; p-value < 2.2e-16 mirrors R's printed floor.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html; https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r",
+      "scipyCheck": true,
+      "input": "Descriptives\nGroup    N    Mean       SD\nWomen    20   63.49867   2.03000\nMen      20   85.82612   4.35000\n\nWelch Two Sample t-test\n\ndata:  weight by group\nt = -20.8008, df = 26.9008, p-value < 2.2e-16\nalternative hypothesis: true difference in means between group Women and group Men is not equal to 0\n95 percent confidence interval:\n -24.53025 -20.12465\nsample estimates:\nmean in group Women   mean in group Men\n          63.49867             85.82612",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 20,
+          "primary.mean": 63.49867,
+          "primary.standardDeviation": 2.03000,
+          "secondary.n": 20,
+          "secondary.mean": 85.82612,
+          "secondary.standardDeviation": 4.35000,
+          "reported.ciLower": -24.53025,
+          "reported.ciUpper": -20.12465,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "R_IND02_STUDENT_VAR_EQUAL",
+      "title": "R t.test var.equal TRUE two-sample console output",
+      "format": "r_t_test",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "R console output shape from the stats::t.test manual and R's sleep-data examples. Numeric values were generated from the fixture descriptives for an equal-variance Student test.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html",
+      "scipyCheck": true,
+      "input": "Descriptives\nGroup    N    Mean    SD\nExtra1   10   0.75    1.789010\nExtra2   10   2.33    2.002249\n\nTwo Sample t-test\n\ndata:  extra by group\nt = -1.8608, df = 18, p-value = 0.07919\nalternative hypothesis: true difference in means between group Extra1 and group Extra2 is not equal to 0\n95 percent confidence interval:\n -3.36387  0.20387\nsample estimates:\nmean in group Extra1   mean in group Extra2\n                0.75                 2.33",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentStudent",
+        "candidateKinds": ["independentStudent"],
+        "selectedKind": "independentStudent",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 0.75,
+          "primary.standardDeviation": 1.789010,
+          "secondary.n": 10,
+          "secondary.mean": 2.33,
+          "secondary.standardDeviation": 2.002249,
+          "reported.ciLower": -3.36387,
+          "reported.ciUpper": 0.20387,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentStudent",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .079"
+        }
+      ]
+    },
+    {
+      "id": "R_ONE01_BASE_CONSOLE",
+      "title": "R t.test one-sample console output",
+      "format": "r_t_test",
+      "provenance": "sourced_console_plus_synthesised_descriptives",
+      "shapeSource": "One Sample t-test console block reproduced from Datanovia's one-sample t-test in R tutorial shape; the Descriptives line is synthesized so Res-Quill can validate from n, mean, and SD.",
+      "sourceUrl": "https://www.datanovia.com/en/lessons/t-test-in-r/",
+      "scipyCheck": true,
+      "input": "Descriptives\nVariable    N    Mean    SD\nMice        10   20.14   1.896313\n\nOne Sample t-test\n\ndata:  my_data$weight\nt = -8.1045, df = 9, p-value = 1.995e-05\nalternative hypothesis: true mean is not equal to 25\n95 percent confidence interval:\n 18.78346 21.49654\nsample estimates:\nmean of x\n    20.14",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "oneSample",
+        "candidateKinds": ["oneSample"],
+        "selectedKind": "oneSample",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 20.14,
+          "primary.standardDeviation": 1.896313,
+          "referenceMean": 25,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "oneSample",
+          "confirmedTail": "twoTailed",
+          "formalContains": "one-sample"
+        }
+      ]
+    },
+    {
+      "id": "R_PAIR01_BASE_CONSOLE",
+      "title": "R t.test paired console output with paired-difference descriptives",
+      "format": "r_t_test",
+      "provenance": "sourced_console_plus_synthesised_descriptives",
+      "shapeSource": "Paired t-test console block shape from Datanovia's paired t-test in R tutorial; marginal and paired-difference descriptive rows are synthesized from the same worked example so validation has n, means, SDs, and difference SD.",
+      "sourceUrl": "https://www.datanovia.com/en/lessons/t-test-in-r/",
+      "scipyCheck": true,
+      "input": "Descriptives\nMeasure    N    Mean      SD\nBefore     10   200.56    20.0282\nAfter      10   400.04    30.0869\n\nPaired Differences\nContrast          N    Mean       SD        SE\nBefore - After    10   -199.480   24.6929   7.8086\n\nPaired t-test\n\ndata:  before and after\nt = -25.546, df = 9, p-value = 1.039e-09\nalternative hypothesis: true mean difference is not equal to 0\n95 percent confidence interval:\n -217.1442 -181.8158\nsample estimates:\nmean difference\n        -199.48",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 200.56,
+          "primary.standardDeviation": 20.0282,
+          "secondary.n": 10,
+          "secondary.mean": 400.04,
+          "secondary.standardDeviation": 30.0869,
+          "paired.meanDifference": -199.480,
+          "paired.differenceStandardDeviation": 24.6929,
+          "reported.meanDifference": -199.480,
+          "reported.standardError": 7.8086,
+          "reported.ciLower": -217.1442,
+          "reported.ciUpper": -181.8158,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "pairedSamples",
+          "confirmedTail": "twoTailed",
+          "formalContains": "paired-samples"
+        }
+      ]
+    },
+    {
+      "id": "JASP_IND01_WELCH_TABLE",
+      "title": "JASP independent-samples Welch table with descriptives",
+      "format": "jasp_jamovi_table",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from JASP independent-samples t-test result and Descriptives table shapes documented in the JASP independent-samples tutorial.",
+      "sourceUrl": "https://jasp-stats.org/2018/04/18/how-to-conduct-a-classical-independent-sample-t-test-in-jasp-and-interpret-the-results/",
+      "scipyCheck": true,
+      "input": "Independent Samples T-Test\n\n             Statistic    df       p       Mean difference    SE difference\nScore        Welch's t    2.551      47.568   0.014   9.000              3.528\n\nDescriptives\nGroup                N     Mean     SD       SE\nRetrieval practice   25    81.40    11.20    2.240\nRestudy              26    72.40    13.90    2.726\n\n95% CI [1.904, 16.096]",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 25,
+          "primary.mean": 81.40,
+          "primary.standardDeviation": 11.20,
+          "secondary.n": 26,
+          "secondary.mean": 72.40,
+          "secondary.standardDeviation": 13.90,
+          "reported.meanDifference": 9.000,
+          "reported.standardError": 3.528,
+          "reported.ciLower": 1.904,
+          "reported.ciUpper": 16.096,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .014"
+        }
+      ]
+    },
+    {
+      "id": "JAMOVI_IND01_STUDENT_TABLE",
+      "title": "jamovi independent-samples Student table with descriptives",
+      "format": "jasp_jamovi_table",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from jamovi independent-samples t-test output structure: an Independent Samples T-Test table with statistic, df, p, and a separate Descriptives table.",
+      "sourceUrl": "https://jamovi.readthedocs.io/is/latest/spss2jamovi/s2j_ttestIS/",
+      "scipyCheck": true,
+      "input": "Independent Samples T-Test\n\n            Statistic      df      p       Mean difference    SE difference\nscore       Student's t    2.415    38      0.021   10.7715            4.4596\n\nDescriptives\nGroup       N     Mean       SD         SE\nTreatment   20    82.7975    13.30169   2.97435\nControl     20    72.0260    14.86025   3.32285\n\n95% CI [1.7435, 19.7995]",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentStudent",
+        "candidateKinds": ["independentStudent"],
+        "selectedKind": "independentStudent",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 20,
+          "primary.mean": 82.7975,
+          "primary.standardDeviation": 13.30169,
+          "secondary.n": 20,
+          "secondary.mean": 72.0260,
+          "secondary.standardDeviation": 14.86025,
+          "reported.meanDifference": 10.7715,
+          "reported.standardError": 4.4596,
+          "reported.ciLower": 1.7435,
+          "reported.ciUpper": 19.7995,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentStudent",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .021"
+        }
+      ]
+    },
+    {
+      "id": "JASP_ONE01_TABLE",
+      "title": "JASP one-sample t-test table with descriptives",
+      "format": "jasp_jamovi_table",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from JASP one-sample t-test output shape documented in a JASP one-sample tutorial: a One Sample T-Test table and a Descriptives table.",
+      "sourceUrl": "https://jasp-stats.org/2018/01/09/classical-one-sample-t-test-jasp-interpret-results/",
+      "scipyCheck": true,
+      "input": "One Sample T-Test\nTest Value = 0\n\n            Statistic     df      p       Mean difference    SE difference\nScore       Student's t   10.841    15      < .001  10.410             0.960\n\nDescriptives\nVariable    N     Mean     SD       SE\nScore       16    10.41    3.841    0.960\n\n95% CI [8.363, 12.457]",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "oneSample",
+        "candidateKinds": ["oneSample"],
+        "selectedKind": "oneSample",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 16,
+          "primary.mean": 10.41,
+          "primary.standardDeviation": 3.841,
+          "referenceMean": 0,
+          "reported.meanDifference": 10.410,
+          "reported.standardError": 0.960,
+          "reported.ciLower": 8.363,
+          "reported.ciUpper": 12.457,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "oneSample",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "JAMOVI_PAIR01_TABLE",
+      "title": "jamovi paired-samples t-test table with descriptives",
+      "format": "jasp_jamovi_table",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from jamovi/JASP paired-samples t-test table conventions: paired test table, separate Descriptives, and a paired-difference summary row.",
+      "sourceUrl": "https://jamovi.readthedocs.io/is/latest/spss2jamovi/s2j_ttestIS/",
+      "scipyCheck": true,
+      "input": "Paired Samples T-Test\n\nMeasure 1    Measure 2    Statistic      df    p       Mean difference    SE difference\nBefore       After        Student's t    -25.546  9     < .001  -199.480           7.809\n\nDescriptives\nMeasure    N    Mean      SD        SE\nBefore     10   200.56    20.0282   6.3330\nAfter      10   400.04    30.0869   9.5141\n\nPaired Differences\nContrast          N    Mean       SD        SE\nBefore - After    10   -199.480   24.6929   7.8086\n\n95% CI [-217.144, -181.816]",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 200.56,
+          "primary.standardDeviation": 20.0282,
+          "secondary.n": 10,
+          "secondary.mean": 400.04,
+          "secondary.standardDeviation": 30.0869,
+          "paired.meanDifference": -199.480,
+          "paired.differenceStandardDeviation": 24.6929,
+          "reported.meanDifference": -199.480,
+          "reported.standardError": 7.8086,
+          "reported.ciLower": -217.144,
+          "reported.ciUpper": -181.816,
+          "reported.confidenceLevel": 0.95
+        },
+        "fieldRelations": {
+          "reported.p": "lessThan"
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "pairedSamples",
+          "confirmedTail": "twoTailed",
+          "formalContains": "paired-samples"
+        }
+      ]
+    },
+    {
+      "id": "EXCEL_IND01_EQUAL_VARIANCES",
+      "title": "Excel ToolPak two-sample equal-variances t-test output",
+      "format": "excel_toolpak",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from the Microsoft Analysis ToolPak t-Test: Two-Sample Assuming Equal Variances tool and common ToolPak output row labels.",
+      "sourceUrl": "https://support.microsoft.com/en-us/office/use-the-analysis-toolpak-to-perform-complex-data-analysis-6c67ccf0-f4a9-487c-8dec-bdb5a2cefab6",
+      "scipyCheck": true,
+      "input": "t-Test: Two-Sample Assuming Equal Variances\n\n                 Variable 1    Variable 2\nMean             0.750000      2.330000\nVariance         3.200557      4.009001\nObservations     10            10\nPooled Variance  3.604779\nHypothesized Mean Difference 0\ndf               18\nt Stat           -1.860813\nP(T<=t) one-tail 0.039593\nt Critical one-tail 1.734064\nP(T<=t) two-tail 0.079187\nt Critical two-tail 2.100922\nAlpha            0.05",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentStudent",
+        "candidateKinds": ["independentStudent"],
+        "selectedKind": "independentStudent",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 0.750000,
+          "primary.standardDeviation": 1.789010,
+          "secondary.n": 10,
+          "secondary.mean": 2.330000,
+          "secondary.standardDeviation": 2.002249,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentStudent",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p = .079"
+        }
+      ]
+    },
+    {
+      "id": "EXCEL_IND02_UNEQUAL_VARIANCES",
+      "title": "Excel ToolPak two-sample unequal-variances t-test output",
+      "format": "excel_toolpak",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from the Microsoft Analysis ToolPak t-Test: Two-Sample Assuming Unequal Variances tool and common ToolPak output row labels.",
+      "sourceUrl": "https://support.microsoft.com/en-us/office/use-the-analysis-toolpak-to-perform-complex-data-analysis-6c67ccf0-f4a9-487c-8dec-bdb5a2cefab6",
+      "scipyCheck": true,
+      "input": "t-Test: Two-Sample Assuming Unequal Variances\n\n                 Variable 1    Variable 2\nMean             63.49867      85.82612\nVariance         4.12090       18.92250\nObservations     20            20\nHypothesized Mean Difference 0\ndf               26.900841\nt Stat           -20.800839\nP(T<=t) one-tail 2.06676E-18\nt Critical one-tail 1.705618\nP(T<=t) two-tail 4.13352E-18\nt Critical two-tail 2.055529\nAlpha            0.05",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "independentWelch",
+        "candidateKinds": ["independentWelch"],
+        "selectedKind": "independentWelch",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 20,
+          "primary.mean": 63.49867,
+          "primary.standardDeviation": 2.03000,
+          "secondary.n": 20,
+          "secondary.mean": 85.82612,
+          "secondary.standardDeviation": 4.35000,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "independentWelch",
+          "confirmedTail": "twoTailed",
+          "formalContains": "p < .001"
+        }
+      ]
+    },
+    {
+      "id": "EXCEL_PAIR01_PAIRED",
+      "title": "Excel ToolPak paired two-sample t-test output",
+      "format": "excel_toolpak",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Synthesized from the Microsoft Analysis ToolPak t-Test: Paired Two Sample for Means tool and common ToolPak output row labels.",
+      "sourceUrl": "https://support.microsoft.com/en-us/office/use-the-analysis-toolpak-to-perform-complex-data-analysis-6c67ccf0-f4a9-487c-8dec-bdb5a2cefab6",
+      "scipyCheck": true,
+      "input": "t-Test: Paired Two Sample for Means\n\n                 Variable 1    Variable 2\nMean             200.5600      400.0400\nVariance         401.128795    905.221552\nObservations     10            10\nPearson Correlation 0.578018\nHypothesized Mean Difference 0\ndf               9\nt Stat           -25.546256\nP(T<=t) one-tail 5.19468E-10\nt Critical one-tail 1.833113\nP(T<=t) two-tail 1.03894E-09\nt Critical two-tail 2.262157\nAlpha            0.05",
+      "expected": {
+        "status": "confident",
+        "detectedKind": "pairedSamples",
+        "candidateKinds": ["pairedSamples"],
+        "selectedKind": "pairedSamples",
+        "ambiguityIds": [],
+        "fieldValues": {
+          "primary.n": 10,
+          "primary.mean": 200.5600,
+          "primary.standardDeviation": 20.0282,
+          "secondary.n": 10,
+          "secondary.mean": 400.0400,
+          "secondary.standardDeviation": 30.0869,
+          "paired.correlation": 0.578018,
+          "reported.confidenceLevel": 0.95
+        }
+      },
+      "roundTrip": [
+        {
+          "candidateKind": "pairedSamples",
+          "confirmedTail": "twoTailed",
+          "formalContains": "paired-samples"
+        }
+      ]
+    },
+    {
+      "id": "R_NEG01_TRUNCATED",
+      "title": "R t.test output truncated before sample estimates",
+      "format": "negative",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Negative control shaped like the stats::t.test console output, deliberately truncated before confidence interval and sample estimates.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/t.test.html",
+      "input": "Welch Two Sample t-test\n\ndata:  x and y\nt = 2.415, df = 37.543, p-value = 0.021",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {},
+        "refusalReasons": ["R t.test output is missing sample estimates or descriptives."]
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "JAMOVI_NEG01_MISSING_P",
+      "title": "jamovi/JASP t-test table without p column",
+      "format": "negative",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Negative control shaped like a compact jamovi/JASP t-test result table, deliberately omitting the p column.",
+      "sourceUrl": "https://jamovi.readthedocs.io/is/latest/spss2jamovi/s2j_ttestIS/",
+      "input": "Independent Samples T-Test\n\n            Statistic      df      Mean difference\nscore       Student's t    2.415    38      10.7715\n\nDescriptives\nGroup       N     Mean       SD\nTreatment   20    82.7975    13.30169\nControl     20    72.0260    14.86025",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {},
+        "refusalReasons": ["JASP/jamovi t-test table is missing the p column."]
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "R_NEG02_CORRELATION",
+      "title": "R correlation test output refused",
+      "format": "negative",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Negative control shaped like R cor.test console output, which is not a t-test report path Res-Quill supports.",
+      "sourceUrl": "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/cor.test.html",
+      "input": "Pearson's product-moment correlation\n\ndata:  x and y\nt = 3.12, df = 28, p-value = 0.004\nalternative hypothesis: true correlation is not equal to 0\nsample estimates:\n      cor\n0.507",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {},
+        "refusalReasons": ["Correlation output is not supported."]
+      },
+      "roundTrip": []
+    },
+    {
+      "id": "EXCEL_NEG01_ZTEST",
+      "title": "Excel ToolPak z-test output refused",
+      "format": "negative",
+      "provenance": "synthesised_from_sourced_shape",
+      "shapeSource": "Negative control shaped like Excel Analysis ToolPak z-Test: Two Sample for Means output.",
+      "sourceUrl": "https://support.microsoft.com/en-us/office/use-the-analysis-toolpak-to-perform-complex-data-analysis-6c67ccf0-f4a9-487c-8dec-bdb5a2cefab6",
+      "input": "z-Test: Two Sample for Means\n\n                 Variable 1    Variable 2\nMean             82.8          72.0\nKnown Variance   16            25\nObservations     20            20\nz                8.428\nP(Z<=z) two-tail 0.000",
+      "expected": {
+        "status": "cannotParse",
+        "detectedKind": null,
+        "candidateKinds": [],
+        "selectedKind": null,
+        "ambiguityIds": [],
+        "fieldValues": {},
+        "refusalReasons": ["z-test output is not supported."]
+      },
+      "roundTrip": []
+    },
+    {
       "id": "NEG01_EMPTY",
       "title": "Empty input",
       "format": "negative",

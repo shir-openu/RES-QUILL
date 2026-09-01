@@ -28,6 +28,9 @@ void main() {
         if (result.status == PasteParseStatus.cannotParse) {
           expect(result.refusalReasons, isNotEmpty);
         }
+        if (fixture.expectedRefusalReasons.isNotEmpty) {
+          expect(result.refusalReasons, fixture.expectedRefusalReasons);
+        }
 
         final detectedKeys = result.fields.map((field) => field.key).toSet();
         final missingKeys = result.missingRequiredFields
@@ -215,6 +218,7 @@ class _Fixture {
     required this.expectedFieldValues,
     required this.expectedFieldRelations,
     required this.expectedRoundedZeroFields,
+    required this.expectedRefusalReasons,
     required this.roundTrips,
   });
 
@@ -238,6 +242,9 @@ class _Fixture {
       expectedRoundedZeroFields:
           ((expected['spssRoundedZeroFields'] as List<Object?>?) ?? const [])
               .cast<String>(),
+      expectedRefusalReasons:
+          ((expected['refusalReasons'] as List<Object?>?) ?? const [])
+              .cast<String>(),
       roundTrips: (json['roundTrip']! as List<Object?>)
           .map((item) => _RoundTrip.fromJson(item! as Map<String, Object?>))
           .toList(),
@@ -254,6 +261,7 @@ class _Fixture {
   final Map<String, double> expectedFieldValues;
   final Map<String, String> expectedFieldRelations;
   final List<String> expectedRoundedZeroFields;
+  final List<String> expectedRefusalReasons;
   final List<_RoundTrip> roundTrips;
 }
 

@@ -26,14 +26,14 @@ enum _InputMode { paste, manual, example }
 enum _ButtonTone { primary, secondary, tertiary }
 
 const _spreadsheetBoundaryMessage =
-    'CSV and Excel files contain raw rows. Res-Quill checks t-test output '
-    'after SPSS, JASP, jamovi, or APA has already computed it. Paste that '
-    'output instead.';
+    'CSV files and raw Excel sheets contain raw rows. Res-Quill checks '
+    't-test output from SPSS, R, JASP, jamovi, Excel ToolPak, or APA-style '
+    'reports. Paste that output instead.';
 
 const _currentLimitsMessage =
     'Today: Student, Welch, paired, and one-sample t-tests only. Paste SPSS, '
-    'JASP, jamovi, or APA output. No raw CSV/Excel computation. No cloud. '
-    'No accounts.';
+    'R, JASP, jamovi, Excel ToolPak, or APA output. No raw CSV/Excel data '
+    'computation. No cloud. No accounts.';
 
 class _PasteExample {
   const _PasteExample({
@@ -4591,7 +4591,7 @@ class _InputCopy {
       _InputMode.paste => const _InputCopy(
         kicker: 'Input',
         title: 'Paste your t-test output.',
-        body: 'Paste SPSS, JASP, jamovi, or APA output.',
+        body: 'Paste SPSS, R, JASP, jamovi, Excel ToolPak, or APA output.',
         pasteTitle: 'Paste output',
         pasteBody: null,
       ),

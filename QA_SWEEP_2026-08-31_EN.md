@@ -149,7 +149,7 @@ The two previous blockers are cleared. `spss_independent_samples.txt` and `apa_s
 
 1. Res-Quill does not compute statistics from raw CSV or Excel rows.
 2. Res-Quill supports only four t-test paths today: independent Student, independent Welch, paired samples, and one sample.
-3. Res-Quill supports pasted SPSS, JASP, jamovi, and APA-style t-test output; unsupported table/prose shapes are refused.
+3. Res-Quill supports pasted SPSS, R `t.test()`, JASP, jamovi, Excel ToolPak, and APA-style t-test output; unsupported table/prose shapes are refused.
 4. Res-Quill has no cloud storage.
 5. Res-Quill has no accounts or sign-in.
 

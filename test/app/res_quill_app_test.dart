@@ -67,7 +67,7 @@ void main() {
 
     expect(
       find.text(
-        'Today: Student, Welch, paired, and one-sample t-tests only. Paste SPSS, JASP, jamovi, or APA output. No raw CSV/Excel computation. No cloud. No accounts.',
+        'Today: Student, Welch, paired, and one-sample t-tests only. Paste SPSS, R, JASP, jamovi, Excel ToolPak, or APA output. No raw CSV/Excel data computation. No cloud. No accounts.',
       ),
       findsOneWidget,
     );
@@ -396,7 +396,7 @@ void main() {
     expect(find.text('CSV and Excel files'), findsOneWidget);
     expect(
       find.text(
-        'CSV and Excel files contain raw rows. Res-Quill checks t-test output after SPSS, JASP, jamovi, or APA has already computed it. Paste that output instead.',
+        'CSV files and raw Excel sheets contain raw rows. Res-Quill checks t-test output from SPSS, R, JASP, jamovi, Excel ToolPak, or APA-style reports. Paste that output instead.',
       ),
       findsOneWidget,
     );
@@ -418,7 +418,7 @@ void main() {
     );
     expect(
       find.text(
-        'CSV and Excel files contain raw rows. Res-Quill checks t-test output after SPSS, JASP, jamovi, or APA has already computed it. Paste that output instead.',
+        'CSV files and raw Excel sheets contain raw rows. Res-Quill checks t-test output from SPSS, R, JASP, jamovi, Excel ToolPak, or APA-style reports. Paste that output instead.',
       ),
       findsOneWidget,
     );
@@ -433,7 +433,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Paste output'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Paste SPSS, JASP, jamovi, or APA output.'),
+      find.text('Paste SPSS, R, JASP, jamovi, Excel ToolPak, or APA output.'),
       findsOneWidget,
     );
 

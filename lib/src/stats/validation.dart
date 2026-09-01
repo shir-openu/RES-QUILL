@@ -582,7 +582,7 @@ String _decimalPlacesText(int decimalPlaces) {
 }
 
 String _formatFixed(double value, int decimals) {
-  final fixed = value.toStringAsFixed(math.max(0, decimals));
+  final fixed = value.toStringAsFixed(math.min(20, math.max(0, decimals)));
   if (!fixed.contains('.')) {
     return fixed;
   }

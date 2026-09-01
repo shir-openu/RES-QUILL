@@ -243,6 +243,19 @@ class PasteTTestCandidate {
         );
       }
     }
+    if (kind == TTestKind.pairedSamples &&
+        field(PasteFieldKey.pairedCorrelation) == null) {
+      for (final key in const [
+        PasteFieldKey.pairedMeanDifference,
+        PasteFieldKey.pairedDifferenceStandardDeviation,
+      ]) {
+        if (field(key) == null) {
+          missing.add(
+            PasteMissingField(key: key, reason: '${key.label} missing'),
+          );
+        }
+      }
+    }
     return missing;
   }
 
@@ -335,10 +348,10 @@ class PasteTTestCandidate {
           paired: ReportedPairedDescriptives(
             first: first,
             second: second,
-            meanDifference: number(PasteFieldKey.pairedMeanDifference)!.value,
+            meanDifference: number(PasteFieldKey.pairedMeanDifference)?.value,
             differenceStandardDeviation: number(
               PasteFieldKey.pairedDifferenceStandardDeviation,
-            )!.value,
+            )?.value,
             correlation: number(PasteFieldKey.pairedCorrelation)?.value,
           ),
           reportedT: number(PasteFieldKey.reportedT)?.toReportedValue(),
@@ -482,8 +495,6 @@ class PasteTTestCandidate {
         PasteFieldKey.secondaryN,
         PasteFieldKey.secondaryMean,
         PasteFieldKey.secondaryStandardDeviation,
-        PasteFieldKey.pairedMeanDifference,
-        PasteFieldKey.pairedDifferenceStandardDeviation,
       ],
       TTestKind.oneSample => [...common, PasteFieldKey.referenceMean],
     };

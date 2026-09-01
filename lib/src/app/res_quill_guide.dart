@@ -78,7 +78,7 @@ const _guideStepsByScreen = <_Screen, List<_GuideStep>>{
       side: _GuideSide.top,
       title: 'Paste copied output',
       body:
-          'Paste SPSS output when you have it copied. Then confirm detected values.',
+          'Paste supported t-test output when copied. Then confirm detected values.',
     ),
     _GuideStep(
       targetId: 'manual_entry',
