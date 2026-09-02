@@ -2013,9 +2013,95 @@ class _PastePanel extends StatelessWidget {
               onCandidateChanged: onCandidateChanged,
               onPasteTailChanged: onPasteTailChanged,
               onConfirmPaste: onConfirmPaste,
+              onLoadSelectedExample: () => onLoadExample(selectedExample),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// Three real lines, one per family, short enough to read at a glance. They are
+// excerpts of the shipped example files, not invented output.
+class _SupportedPasteShapes extends StatelessWidget {
+  const _SupportedPasteShapes();
+
+  // The SPSS row needs its header line: on its own, "3.066  30  .005" is three
+  // unlabelled numbers and tells a reader nothing.
+  static const _lines = <(String, List<String>)>[
+    ('R', ['t = 1.4574, df = 32, p-value = 0.1548']),
+    (
+      'SPSS',
+      [
+        '            t       df    Sig. (2-tailed)',
+        'protein   3.066    30         .005',
+      ],
+    ),
+    ('APA', ['t(47.57) = 2.55, p = .014, 95% CI [1.90, 16.10]']),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _RqColors.of(context);
+    // On a phone the source label costs width the output needs, so it moves
+    // above its lines and the type shrinks. Real output is wide; the box still
+    // scrolls sideways rather than re-wrapping, because a wrapped SPSS row
+    // stops looking like the thing the student has on screen.
+    final narrow = MediaQuery.sizeOf(context).width < 520;
+    final monoSize = narrow ? 11.5 : 12.5;
+    final labelStyle = TextStyle(color: colors.muted, fontSize: monoSize);
+    final monoStyle = TextStyle(
+      color: colors.fieldText,
+      fontFamily: 'Consolas',
+      fontSize: monoSize,
+      height: 1.4,
+    );
+
+    List<Widget> outputLines(List<String> lines) => [
+      for (final line in lines) Text(line, softWrap: false, style: monoStyle),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.fieldBackground,
+        border: Border.all(color: colors.line),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (source, lines) in _lines)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(source, style: labelStyle),
+                          ...outputLines(lines),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 52,
+                            child: Text(source, style: labelStyle),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: outputLines(lines),
+                          ),
+                        ],
+                      ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -2030,6 +2116,7 @@ class _PasteReview extends StatelessWidget {
     required this.onCandidateChanged,
     required this.onPasteTailChanged,
     required this.onConfirmPaste,
+    required this.onLoadSelectedExample,
   });
 
   final TTestPasteParseResult result;
@@ -2039,6 +2126,7 @@ class _PasteReview extends StatelessWidget {
   final ValueChanged<PasteTTestCandidate> onCandidateChanged;
   final ValueChanged<ReportedPValueTail> onPasteTailChanged;
   final VoidCallback onConfirmPaste;
+  final VoidCallback onLoadSelectedExample;
 
   @override
   Widget build(BuildContext context) {
@@ -2057,11 +2145,37 @@ class _PasteReview extends StatelessWidget {
               text: _spreadsheetBoundaryMessage,
             ),
           ],
-          const SizedBox(height: 8),
+          // Saying only what is wrong is a dead end: the first thing someone
+          // does with an empty box is type into it, and the refusal that
+          // follows has to show them a shape that works.
+          const SizedBox(height: 14),
           const Text(
-            'Paste t-test output, or type the values below.',
+            'What a supported paste looks like',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
+          const SizedBox(height: 6),
+          const _SupportedPasteShapes(),
+          const SizedBox(height: 10),
+          const Text(
+            'SPSS, R, jamovi, JASP, Excel ToolPak, or an APA sentence. The test '
+            'statistic, the degrees of freedom and the p value have to be there '
+            'together.',
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _ActionButton(
+                key: const Key('refusal-load-example'),
+                label: 'Load an example',
+                tone: _ButtonTone.primary,
+                onPressed: onLoadSelectedExample,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text('Or type the values below.'),
         ],
       );
     }
@@ -5125,10 +5239,12 @@ class _InputCopy {
         pasteTitle: 'Example output',
         pasteBody: null,
       ),
+      // The screen carries both panels in every mode, so the heading names the
+      // screen. Naming one panel argued against whichever panel you were using.
       _InputMode.manual => _InputCopy(
         kicker: 'Input',
-        title: 'Type values from your t-test.',
-        body: 'Type values from one output row.',
+        title: 'Enter your t-test result.',
+        body: 'Paste your output, or type the values from one output row.',
         pasteTitle: 'Paste output',
         pasteBody: null,
       ),

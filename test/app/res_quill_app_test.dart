@@ -596,6 +596,46 @@ void main() {
     expect(find.text('Open sample text folder'), findsWidgets);
   });
 
+  // Shir typed "1 2 3 4 5 6 7 8" into the live site and got an accurate refusal
+  // with nowhere to go from it. A refusal has to show a shape that works and
+  // offer one press that produces it.
+  testWidgets('a refusal shows a supported shape and can load an example', (
+    tester,
+  ) async {
+    await _setDesktop(tester);
+    await tester.pumpWidget(const MainApp());
+    await _pasteAndReview(tester, '1 2 3 4 5 6 7 8');
+
+    expect(find.text('Cannot use this paste'), findsOneWidget);
+    expect(find.text('What a supported paste looks like'), findsOneWidget);
+    expect(find.text('t = 1.4574, df = 32, p-value = 0.1548'), findsOneWidget);
+
+    final loadExample = find.byKey(const Key('refusal-load-example'));
+    expect(loadExample, findsOneWidget);
+    await tester.ensureVisible(loadExample);
+    // The example is read from the asset bundle, so it needs real async time -
+    // pumpAndSettle alone leaves the load pending. Same reason as
+    // _loadDefaultExample.
+    final button = tester.widget<FilledButton>(
+      find.descendant(of: loadExample, matching: find.byType(FilledButton)),
+    );
+    expect(button.onPressed, isNotNull);
+    await tester.runAsync(() async {
+      button.onPressed!();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+
+    // The example parsed, so the refusal is gone and the box no longer holds
+    // the eight bare numbers.
+    expect(find.text('Cannot use this paste'), findsNothing);
+    final box = tester.widget<TextField>(
+      find.byKey(const Key('paste-output-box')),
+    );
+    expect(box.controller!.text, isNot('1 2 3 4 5 6 7 8'));
+    expect(box.controller!.text.trim(), isNotEmpty);
+  });
+
   testWidgets('pasted raw spreadsheet rows are refused clearly', (
     tester,
   ) async {
@@ -643,7 +683,13 @@ void main() {
     await tester.tap(find.text('Student t-test').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Type values from one output row.'), findsOneWidget);
+    // The heading names the screen, which carries both panels, rather than the
+    // typing panel alone - see SHIR_FEEDBACK_2026-09-01_FIRST_LIVE_USE_EN.md.
+    expect(find.text('Enter your t-test result.'), findsOneWidget);
+    expect(
+      find.text('Paste your output, or type the values from one output row.'),
+      findsOneWidget,
+    );
     expect(find.text('SPSS row: Equal variances assumed'), findsOneWidget);
     expect(find.text('Student t-test'), findsOneWidget);
     expect(find.text('Alpha (course, usually .05)'), findsOneWidget);
